@@ -45,9 +45,10 @@ def get_admin_menu() -> ReplyKeyboardMarkup:
         ],
         [
             KeyboardButton(text="✉️ Xabar yuborish (Broadcast)"),
-            KeyboardButton(text="🗑 Animeni o'chirish"),
+            KeyboardButton(text="💾 Zaxira (Backup)"),
         ],
         [
+            KeyboardButton(text="🗑 Animeni o'chirish"),
             KeyboardButton(text="🔙 Bosh menyuga qaytish")
         ]
     ]

@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     WEB_SERVER_ENABLED: bool = Field(default=True, description="Veb-serverni faollashtirish")
     WEBHOOK_URL: str = Field(default="", description="Webhook URL (kerak bo'lganda)")
 
+    # Telegram Cloud Zaxiralash (@acacafagag) sozlamalari
+    BACKUP_CHANNEL_ID: str = Field(default="-1003957205922", description="Zaxira yuboriladigan kanal ID")
+    BACKUP_INTERVAL_MINUTES: int = Field(default=30, description="Avtomatik zaxiralash oralig'i (daqiqa)")
+    AUTO_RESTORE_ENABLED: bool = Field(default=True, description="Avtomatik tiklash imkoniyati")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -343,5 +343,10 @@ class DatabaseManager:
                 session.add(setting)
             await session.commit()
 
+    async def close(self) -> None:
+        """Baza ulanishlarini to'liq yopish va resurslarni ozod qilish"""
+        if self.engine:
+            await self.engine.dispose()
+
 
 db = DatabaseManager(config.DATABASE_URL)

@@ -109,6 +109,93 @@ async def handle_stats(message: Message) -> None:
     await message.answer(text, parse_mode="HTML")
 
 
+# ------------------ ZAXIRALASH (BACKUP) ------------------
+@admin_router.message(Command("backup"))
+@admin_router.message(F.text == "💾 Zaxira (Backup)")
+async def handle_manual_backup(message: Message) -> None:
+    user = message.from_user
+    if not user or not await db.is_admin(user.id):
+        return
+
+    status_msg = await message.answer(
+        "⏳ <b>Baza zaxirasi tayyorlanmoqda va @acacafagag kanaliga yuborilmoqda...</b>",
+        parse_mode="HTML"
+    )
+    try:
+        from services.backup_service import backup_service
+        ok = await backup_service.send_backup(bot=message.bot, delete_old=True)
+        if ok:
+            stats = await db.get_statistics()
+            await status_msg.edit_text(
+                "✅ <b>Baza muvaffaqiyatli zaxiralandi va @acacafagag kanaliga yetkazildi!</b>\n\n"
+                f"🎬 <b>Animelar:</b> {stats['animes_count']} ta\n"
+                f"🎞 <b>Qismlar:</b> {stats['episodes_count']} ta (HD)\n"
+                f"👥 <b>Foydalanuvchilar:</b> {stats['users_count']} ta\n"
+                f"📥 <b>Yuklanishlar:</b> {stats['total_downloads']} ta\n\n"
+                "🧹 <i>Eski zaxiralar avtomatik tozalandi. Kanalda eng so'nggi arxiv saqlandi.</i>",
+                parse_mode="HTML"
+            )
+        else:
+            await status_msg.edit_text("❌ Zaxirani yuborishda xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
+    except Exception as e:
+        logger.error(f"Manual backup xatosi: {e}")
+        await status_msg.edit_text(f"❌ Xatolik yuz berdi: {e}")
+
+
+# ------------------ TIKLASH (RESTORE) ------------------
+@admin_router.message(Command("restore"))
+async def handle_restore_backup(message: Message) -> None:
+    user = message.from_user
+    if not user or not await db.is_admin(user.id):
+        return
+
+    from services.backup_service import backup_service
+    import io
+
+    doc = None
+    if message.document:
+        doc = message.document
+    elif message.reply_to_message and message.reply_to_message.document:
+        doc = message.reply_to_message.document
+
+    if not doc:
+        await message.answer(
+            "ℹ️ <b>Baza arxivini zaxiradan tiklash qo'llanmasi:</b>\n\n"
+            "1. @acacafagag kanalidagi oxirgi <code>.zip</code> zaxira faylini shu yerga yuboring (yoki forward qiling).\n"
+            "2. Faylga javob (reply) tarzida <code>/restore</code> yozing yoki faylni yuborishda izoh (caption) sifatida <code>/restore</code> kiriting.\n\n"
+            "⚡️ <i>Bot arxivni tekshirib, bazadagi barcha animelar va qismlarni avtomatik tiklaydi.</i>",
+            parse_mode="HTML"
+        )
+        return
+
+    if not doc.file_name or not doc.file_name.lower().endswith(".zip"):
+        await message.answer("❌ Faqat <code>.zip</code> formatidagi zaxira arxivini tiklash mumkin!", parse_mode="HTML")
+        return
+
+    status_msg = await message.answer("⏳ <b>Arxiv yuklab olinmoqda va baza tiklanmoqda...</b>", parse_mode="HTML")
+    try:
+        file_io = io.BytesIO()
+        await message.bot.download(doc.file_id, destination=file_io)
+        zip_bytes = file_io.getvalue()
+
+        ok, text, stats = await backup_service.restore_from_zip_bytes(zip_bytes)
+        if ok:
+            await status_msg.edit_text(
+                f"✅ <b>Baza muvaffaqiyatli tiklandi!</b>\n\n"
+                f"🎬 <b>Animelar:</b> {stats.get('animes_count', 0)} ta\n"
+                f"🎞 <b>Qismlar:</b> {stats.get('episodes_count', 0)} ta\n"
+                f"👥 <b>Foydalanuvchilar:</b> {stats.get('users_count', 0)} ta\n"
+                f"📥 <b>Yuklanishlar:</b> {stats.get('total_downloads', 0)} ta\n\n"
+                "🚀 <i>Barcha ma'lumotlar to'liq o'rnatildi va xizmat davom etmoqda.</i>",
+                parse_mode="HTML"
+            )
+        else:
+            await status_msg.edit_text(f"❌ Tiklashda xatolik: {text}", parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Restore handler xatosi: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Xatolik yuz berdi: {e}", parse_mode="HTML")
+
+
 # ------------------ 1. YANGI ANIME QO'SHISH (WIZARD) ------------------
 @admin_router.message(F.text == "➕ Yangi anime qo'shish")
 async def start_add_anime(message: Message, state: FSMContext) -> None:
@@ -284,6 +371,13 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
     except Exception:
         pass
 
+    # Telegram Cloud zaxiralash (@acacafagag)
+    try:
+        from services.backup_service import backup_service
+        asyncio.create_task(backup_service.send_backup(bot=message.bot, delete_old=True))
+    except Exception as bkp_err:
+        logger.warning(f"Avtomatik zaxiralashda ogohlantirish: {bkp_err}")
+
     await message.answer(confirm_text, reply_markup=get_admin_menu(), parse_mode="HTML")
 
 
@@ -437,6 +531,13 @@ async def finish_batch_upload(message: Message, state: FSMContext) -> None:
         except Exception as e:
             logger.warning(f"Katalog sinxronlashda xatolik: {e}")
 
+        # Telegram Cloud zaxiralash (@acacafagag)
+        try:
+            from services.backup_service import backup_service
+            asyncio.create_task(backup_service.send_backup(bot=message.bot, delete_old=True))
+        except Exception:
+            pass
+
         await message.answer(
             f"🎉 <b>Ommaviy yuklash muvaffaqiyatli yakunlandi!</b>\n\n"
             f"🎬 Anime: <b>{title}</b>\n"
@@ -571,6 +672,13 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
         await sync_channel_catalog(message.bot)
     except Exception as e:
         logger.warning(f"Katalog yangilashda xatolik: {e}")
+
+    # Telegram Cloud zaxiralash (@acacafagag)
+    try:
+        from services.backup_service import backup_service
+        asyncio.create_task(backup_service.send_backup(bot=message.bot, delete_old=True))
+    except Exception:
+        pass
 
     await message.answer(
         f"✅ <b>{data['anime_title']}</b> animening <b>{ep_num}-qismi</b> muvaffaqiyatli saqlandi!\n"

@@ -21,6 +21,9 @@ from middlewares.subscription import SubscriptionCheckMiddleware
 from handlers.admin import admin_router
 from handlers.user import user_router
 
+from services.web_server import start_web_server
+from services.backup_service import backup_service
+
 # Logging sozlamalari
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +38,20 @@ logger = logging.getLogger("AnimeBot")
 async def on_startup(bot: Bot) -> None:
     logger.info("Ma'lumotlar bazasi initsializatsiya qilinmoqda...")
     await db.init_db()
+
+    # Ephemeral hosting tiklash tekshiruvi (agar baza bo'sh bo'lsa @acacafagag dan tiklaydi)
+    try:
+        await backup_service.restore_latest_backup_if_needed(bot)
+    except Exception as bkp_err:
+        logger.warning(f"Zaxirani dastlabki tekshirishda ogohlantirish: {bkp_err}")
+
+    # Avtomatik davriy zaxira siklini fonda ishga tushirish (har 30 daqiqada @acacafagag kanaliga)
+    asyncio.create_task(
+        backup_service.start_periodic_backup_loop(
+            bot,
+            interval_minutes=config.BACKUP_INTERVAL_MINUTES
+        )
+    )
 
     # Bot profili, kirish ekrani tavsifi va buyruqlarini avtomatik sozlash
     try:
@@ -67,10 +84,18 @@ async def on_startup(bot: Bot) -> None:
     logger.info(f"Asosiy kanal: {config.CHANNEL_USERNAME}")
 
 
-from services.web_server import start_web_server
-
 async def on_shutdown(bot: Bot) -> None:
     logger.info("Bot to'xtatilmoqda...")
+    try:
+        logger.info("To'xtashdan oldin so'nggi zaxira @acacafagag kanaliga yuborilmoqda...")
+        await backup_service.send_backup(bot, delete_old=True)
+    except Exception as e:
+        logger.warning(f"So'nggi zaxirani yuborishda ogohlantirish: {e}")
+
+    try:
+        await db.close()
+    except Exception:
+        pass
     await bot.session.close()
 
 

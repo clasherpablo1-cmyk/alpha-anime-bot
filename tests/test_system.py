@@ -96,7 +96,25 @@ async def run_tests():
         assert stats["users_count"] == 1
         assert stats["animes_count"] == 1
         assert stats["episodes_count"] == 1
-        print(f"   ✅ Statistika: {stats}")
+        # 7. Backup ZIP va Metadata testi
+        print("7️⃣ Backup ZIP va Metadata tekshiruvi...")
+        from services.backup_service import BackupService
+        import zipfile
+        import io
+
+        backup_svc = BackupService(channel_id="-1003957205922")
+        zip_bytes, zip_filename, bkp_stats = await backup_svc.create_backup_zip()
+        assert len(zip_bytes) > 0
+        assert zip_filename.startswith("anime_backup_AlphaAnime_")
+        assert zip_filename.endswith(".zip")
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            namelist = zf.namelist()
+            assert "anime_catalog.json" in namelist
+            assert "backup_meta.json" in namelist
+        caption = backup_svc.format_backup_caption(bkp_stats, "22.09.2026 00:00:00")
+        assert "UZBEKCHA ANIMELAR (ALPHA)" in caption
+        assert "@acacafagag" in backup_svc.channel_id or "-1003957205922" in backup_svc.channel_id
+        print(f"   ✅ Backup ZIP to'liq testdan o'tdi: {zip_filename} ({len(zip_bytes)} bayt).")
 
         print("\n🎉 Barcha testlar 100% muvaffaqiyatli o'tdi!")
     finally:
