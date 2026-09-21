@@ -1,0 +1,29 @@
+name: ⏰ 24/7 Cloud Keep-Alive Pinger
+
+on:
+  schedule:
+    # Runs every 10 minutes (UTC) to keep Render Web Service active
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Alpha Anime Bot Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 🌐 Ping Health Endpoint
+        run: |
+          echo "Pinging https://alpha-anime-bot.onrender.com/health..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://alpha-anime-bot.onrender.com/health)
+          echo "HTTP Status Code: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "✅ Alpha Anime Bot 24/7 tirik va muvaffaqiyatli ishlamoqda!"
+          else
+            echo "⚠️ Kutilmagan status: $STATUS (Render qayta yuklanayotgan bo'lishi mumkin)"
+          fi
+
+      - name: 📊 Fetch Live Health JSON
+        run: |
+          curl -s https://alpha-anime-bot.onrender.com/health | python3 -m json.tool || true

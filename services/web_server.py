@@ -1,7 +1,9 @@
+import asyncio
 import time
 import datetime
 import logging
 from typing import Optional
+import aiohttp
 from aiohttp import web
 
 from config import config
@@ -326,6 +328,30 @@ async def handle_dashboard(request: web.Request) -> web.Response:
     return web.Response(text=html, content_type="text/html", status=200)
 
 
+async def start_self_ping_loop(url: Optional[str] = None, interval_seconds: int = 480) -> None:
+    """Render.com 15 daqiqada uyquga (sleep) ketmasligi uchun o'z-o'ziga
+    muntazam HTTP ping yuborib turuvchi mustaqil Keep-Alive mexanizmi."""
+    target_url = url or "https://alpha-anime-bot.onrender.com/ping"
+    logger.info(f"⏰ O'z-o'zini uyg'otib turuvchi Keep-Alive tsikli faollashdi: {target_url} (Har {interval_seconds}s)")
+    
+    # Server to'liq ko'tarilishi uchun boshida 90 soniya kutamiz
+    await asyncio.sleep(90)
+    
+    while True:
+        try:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(target_url) as resp:
+                    if resp.status == 200:
+                        logger.info(f"🟢 [SELF-KEEP-ALIVE OK] Server muvaffaqiyatli uyg'otildi: {target_url} (Status: 200)")
+                    else:
+                        logger.warning(f"🟡 [SELF-KEEP-ALIVE WARN] Server javobi: {resp.status} - {target_url}")
+        except Exception as e:
+            logger.debug(f"Self-ping xabari (qayta uriniladi): {e}")
+        
+        await asyncio.sleep(interval_seconds)
+
+
 async def start_web_server(host: str = "0.0.0.0", port: int = 8080) -> web.AppRunner:
     """Aiohttp veb-serverini parallel fon rejimida ishga tushirish"""
     app = web.Application()
@@ -339,4 +365,8 @@ async def start_web_server(host: str = "0.0.0.0", port: int = 8080) -> web.AppRu
     await site.start()
     logger.info(f"🚀 24/7 Web Server muvaffaqiyatli ishga tushdi: http://{host}:{port}")
     logger.info(f"📊 Health Check endpointi faol: http://{host}:{port}/health")
+    
+    # 24/7 Sleep bo'lmasligi uchun avtomatik self-ping tsiklini ishga tushirish
+    asyncio.create_task(start_self_ping_loop())
+    
     return runner
