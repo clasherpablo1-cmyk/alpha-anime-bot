@@ -1,0 +1,28 @@
+# Muhit o'zgaruvchilari (Tokenlar xavfsizligi)
+.env
+.env.local
+
+# Python kesh
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual muhit
+.venv/
+venv/
+env/
+ENV/
+
+# IDE sozlamalari
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Loglar
+*.log
+
+# Vaqtinchalik fayllar
+scratch/
+tmp/
