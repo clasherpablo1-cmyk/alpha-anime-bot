@@ -42,6 +42,16 @@ async def handle_health(request: web.Request) -> web.Response:
     except Exception:
         stats = {"animes_count": 0, "episodes_count": 0, "users_count": 0, "total_views": 0}
 
+    try:
+        from database.mongo_manager import mongo_manager
+        mongo_status = {
+            "configured": mongo_manager.is_configured,
+            "connected": mongo_manager._is_connected,
+            "circuit_breaker": mongo_manager.circuit_breaker.get_status()
+        }
+    except Exception:
+        mongo_status = {"configured": False, "connected": False}
+
     payload = {
         "status": "ok",
         "bot": config.BOT_USERNAME,
@@ -49,6 +59,7 @@ async def handle_health(request: web.Request) -> web.Response:
         "uptime_seconds": get_uptime_seconds(),
         "uptime_human": get_uptime_human(),
         "database": stats,
+        "mongodb": mongo_status,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
     return web.json_response(payload, status=200)

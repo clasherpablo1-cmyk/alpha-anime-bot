@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     ADMIN_SECRET_KEY: str = Field(default="anime2026", description="Admin huquqini olish paroli")
     DATABASE_URL: str = Field(default="sqlite+aiosqlite:///bot_database.db", description="Database URI")
     
+    # MongoDB Atlas Cloud Database sozlamalari
+    MONGODB_URI: str = Field(default="", description="MongoDB Atlas Connection URI (cloud.mongodb.com)")
+    MONGODB_DB_NAME: str = Field(default="AlphaAnimeBotDB", description="MongoDB Database nomi")
+
     # 24/7 Web Server & Cloud Hosting sozlamalari
     PORT: int = Field(default=8080, description="Cloud web server porti (Render, Koyeb, Railway)")
     HOST: str = Field(default="0.0.0.0", description="Web server hosti")

@@ -53,6 +53,17 @@ async def on_startup(bot: Bot) -> None:
         )
     )
 
+    # MongoDB Atlas Cloud Database initsializatsiyasi
+    try:
+        from database.mongo_manager import mongo_manager
+        if mongo_manager.is_configured:
+            connected = await mongo_manager.connect()
+            if connected:
+                # SQLite dan MongoDB Atlas ga barcha ma'lumotlarni sinxronlash
+                asyncio.create_task(mongo_manager.sync_all_from_sqlite(db))
+    except Exception as m_err:
+        logger.warning(f"MongoDB Atlas initsializatsiyasida ogohlantirish: {m_err}")
+
     # Bot profili, kirish ekrani tavsifi va buyruqlarini avtomatik sozlash
     try:
         await bot.set_my_description(
@@ -96,6 +107,13 @@ async def on_shutdown(bot: Bot) -> None:
         await db.close()
     except Exception:
         pass
+
+    try:
+        from database.mongo_manager import mongo_manager
+        await mongo_manager.close()
+    except Exception:
+        pass
+
     await bot.session.close()
 
 

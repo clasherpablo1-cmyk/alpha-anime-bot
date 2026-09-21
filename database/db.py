@@ -70,6 +70,20 @@ class DatabaseManager:
                     updated = True
                 if updated:
                     await session.commit()
+
+            # MongoDB Atlas fon sinxronlash
+            try:
+                from .mongo_manager import mongo_manager
+                if mongo_manager.is_configured:
+                    asyncio.create_task(mongo_manager.upsert_user({
+                        "id": user.id,
+                        "username": user.username,
+                        "full_name": user.full_name,
+                        "is_admin": user.is_admin
+                    }))
+            except Exception:
+                pass
+
             return user
 
     async def set_user_admin(self, user_id: int, is_admin: bool = True) -> bool:
@@ -134,6 +148,25 @@ class DatabaseManager:
             session.add(anime)
             await session.commit()
             await session.refresh(anime)
+
+            # MongoDB Atlas fon sinxronlash
+            try:
+                from .mongo_manager import mongo_manager
+                if mongo_manager.is_configured:
+                    asyncio.create_task(mongo_manager.upsert_anime({
+                        "code": anime.code,
+                        "title_uz": anime.title_uz,
+                        "title_romaji": anime.title_romaji,
+                        "year": anime.year,
+                        "genres": anime.genres,
+                        "description": anime.description,
+                        "poster_file_id": anime.poster_file_id,
+                        "total_episodes": anime.total_episodes,
+                        "status": anime.status
+                    }))
+            except Exception:
+                pass
+
             return anime
 
     async def get_anime_by_code(self, code: int) -> Optional[Anime]:
@@ -253,6 +286,22 @@ class DatabaseManager:
 
             await session.commit()
             await session.refresh(episode)
+
+            # MongoDB Atlas fon sinxronlash
+            try:
+                from .mongo_manager import mongo_manager
+                if mongo_manager.is_configured:
+                    asyncio.create_task(mongo_manager.upsert_episode({
+                        "anime_id": episode.anime_id,
+                        "episode_number": episode.episode_number,
+                        "quality": episode.quality,
+                        "video_file_id": episode.video_file_id,
+                        "caption": episode.caption,
+                        "downloads_count": episode.downloads_count
+                    }))
+            except Exception:
+                pass
+
             return episode
 
     async def get_episode(self, anime_id: int, episode_number: int, quality: Optional[str] = None) -> Optional[Episode]:
