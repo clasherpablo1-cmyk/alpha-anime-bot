@@ -29,7 +29,7 @@ services:
       - key: BACKUP_INTERVAL_MINUTES
         value: "30"
       - key: MONGODB_URI
-        sync: false
+        value: "mongodb+srv://Ismoiljanov_mc:HELLO008@bot.llckshk.mongodb.net/?appName=Bot"
       - key: MONGODB_DB_NAME
         value: "AlphaAnimeBotDB"
 
