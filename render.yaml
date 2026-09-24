@@ -32,4 +32,6 @@ services:
         value: "mongodb+srv://Ismoiljanov_mc:HELLO008@bot.llckshk.mongodb.net/?appName=Bot"
       - key: MONGODB_DB_NAME
         value: "AlphaAnimeBotDB"
+      - key: GEMINI_API_KEY
+        sync: false
 

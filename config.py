@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     BACKUP_INTERVAL_MINUTES: int = Field(default=30, description="Avtomatik zaxiralash oralig'i (daqiqa)")
     AUTO_RESTORE_ENABLED: bool = Field(default=True, description="Avtomatik tiklash imkoniyati")
 
+    # AI Vision & Anime Reverse Search sozlamalari
+    GEMINI_API_KEY: str = Field(default="", description="Gemini Multimodal Vision API kaliti")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

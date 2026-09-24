@@ -1,0 +1,35 @@
+name: 🚀 Deploy to Render.com (24/7)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Alpha Anime Bot to Render
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Trigger Render Deploy via API
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "Render deploy trigger..."
+          if [ -n "$RENDER_API_KEY" ] && [ -n "$RENDER_SERVICE_ID" ]; then
+            curl -s -X POST \
+              "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d '{"clearCache": false}' \
+              | python3 -c "import sys, json; data=json.load(sys.stdin); print('Deploy ID:', data.get('id', 'unknown')); print('Status:', data.get('status', 'unknown'))"
+          else
+            echo "RENDER_API_KEY yoki RENDER_SERVICE_ID o'rnatilmagan - birinchi marta qo'lda deploy qiling"
+          fi
+
+      - name: ✅ Deploy Status
+        run: echo "GitHub push muvaffaqiyatli! Render.com deploy jarayoni boshlandi."

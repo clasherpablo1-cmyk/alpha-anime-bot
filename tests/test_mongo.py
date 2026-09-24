@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from database.mongo_manager import MongoCircuitBreaker, MongoManager
+from config import config
 
 
 class TestMongoManager(unittest.IsolatedAsyncioTestCase):
@@ -37,16 +38,21 @@ class TestMongoManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cb.failure_count, 0)
 
     async def test_mongo_graceful_fallback(self):
-        mgr = MongoManager()
-        # When unconfigured, should not fail or crash
-        self.assertFalse(mgr.is_configured)
-        res = await mgr.connect()
-        self.assertFalse(res)
+        original_uri = config.MONGODB_URI
+        try:
+            config.MONGODB_URI = ""
+            mgr = MongoManager()
+            # When unconfigured, should not fail or crash
+            self.assertFalse(mgr.is_configured)
+            res = await mgr.connect()
+            self.assertFalse(res)
 
-        # Upserts should return False safely without throwing exceptions
-        self.assertFalse(await mgr.upsert_user({"id": 12345}))
-        self.assertFalse(await mgr.upsert_anime({"code": 1}))
-        self.assertFalse(await mgr.upsert_episode({"anime_id": 1, "episode_number": 1}))
+            # Upserts should return False safely without throwing exceptions
+            self.assertFalse(await mgr.upsert_user({"id": 12345}))
+            self.assertFalse(await mgr.upsert_anime({"code": 1}))
+            self.assertFalse(await mgr.upsert_episode({"anime_id": 1, "episode_number": 1}))
+        finally:
+            config.MONGODB_URI = original_uri
 
 
 if __name__ == "__main__":

@@ -9,11 +9,14 @@ def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
             KeyboardButton(text="🔢 Kod orqali qidirish"),
         ],
         [
+            KeyboardButton(text="📸 Rasm orqali qidirish"),
             KeyboardButton(text="🎲 Tasodifiy anime"),
-            KeyboardButton(text="🆕 Yangi animelar"),
         ],
         [
+            KeyboardButton(text="🆕 Yangi animelar"),
             KeyboardButton(text="📢 Bizning kanal"),
+        ],
+        [
             KeyboardButton(text="ℹ️ Bot haqida"),
         ]
     ]

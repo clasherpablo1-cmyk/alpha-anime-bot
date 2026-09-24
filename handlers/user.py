@@ -1,8 +1,10 @@
+import io
 import re
 import asyncio
-from typing import Optional
+import logging
+from typing import Optional, Tuple
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, URLInputFile
+from aiogram.types import Message, CallbackQuery, URLInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -11,6 +13,8 @@ from config import config
 from database.db import db
 from database.models import Anime
 from services.post_generator import format_anime_card, format_episode_caption
+from services.anilist import anilist_service
+from services.image_search import anime_image_search_service, AnimeSearchResult
 from keyboards.reply import get_main_menu, get_cancel_reply
 from keyboards.inline import (
     get_anime_episodes_keyboard,
@@ -18,12 +22,16 @@ from keyboards.inline import (
     get_subscription_keyboard
 )
 
+logger = logging.getLogger(__name__)
+
 user_router = Router(name="user_router")
 
 
 class UserStates(StatesGroup):
     waiting_for_search_query = State()
     waiting_for_code = State()
+    waiting_for_anime_photo = State()
+    waiting_for_second_photo = State()
 
 
 # ------------------ /start VA RO'YXATDAN O'TISH ------------------
@@ -171,6 +179,19 @@ async def handle_code_button(message: Message, state: FSMContext) -> None:
     )
 
 
+@user_router.message(F.text == "📸 Rasm orqali qidirish")
+async def handle_image_search_button(message: Message, state: FSMContext) -> None:
+    await state.set_state(UserStates.waiting_for_anime_photo)
+    await message.answer(
+        "📸 <b>Rasm orqali anime qidirish</b>\n\n"
+        "Iltimos, animedan olingan skrinshot yoki rasm yuboring.\n"
+        "Bot uni darhol tahlil qilib, <b>O'zbekcha</b>, <b>Inglizcha</b> va <b>Yaponcha</b> nomlarini topib beradi!\n\n"
+        "<i>💡 Maslahat: Kadr qanchalik tiniq bo'lsa, natija shunchalik aniq bo'ladi.</i>",
+        reply_markup=get_cancel_reply(),
+        parse_mode="HTML"
+    )
+
+
 @user_router.message(F.text == "🎲 Tasodifiy anime")
 async def handle_random_anime(message: Message) -> None:
     anime = await db.get_random_anime()
@@ -313,6 +334,194 @@ async def handle_direct_code_text(message: Message) -> None:
         return
 
     await send_anime_card(message, anime, is_admin)
+
+
+# ------------------ RASM ORQALI ANIME QIDIRISH (REVERSE IMAGE SEARCH) ------------------
+def format_anime_search_result(result: AnimeSearchResult, is_second: bool = False) -> Tuple[str, Optional[InlineKeyboardMarkup]]:
+    """
+    Rasm orqali qidiruv natijasini chiroyli va qulay formatlash.
+    Uch tildagi nomlar: O'zbekcha, Inglizcha, Yaponcha (Kanji + Romaji).
+    """
+    lines = []
+    if is_second:
+        lines.append("🎉 <b>2-rasm orqali anime muvaffaqiyatli aniqlandi!</b>\n")
+    elif result.status == "high_confidence":
+        lines.append("🎯 <b>Anime muvaffaqiyatli topildi!</b>\n")
+    else:
+        lines.append("🔎 <b>Rasm biroz noaniq, lekin eng yaqin anime topildi:</b>\n")
+
+    lines.append(f"🇺🇿 <b>O'zbekcha:</b> {result.title_uzbek}")
+    lines.append(f"🇬🇧 <b>Inglizcha:</b> {result.title_english}")
+    if result.title_japanese and result.title_romaji and result.title_japanese != result.title_romaji:
+        lines.append(f"🇯🇵 <b>Yaponcha:</b> {result.title_japanese} ({result.title_romaji})")
+    elif result.title_japanese or result.title_romaji:
+        lines.append(f"🇯🇵 <b>Yaponcha:</b> {result.title_japanese or result.title_romaji}")
+
+    if result.similarity_percent > 0:
+        lines.append(f"\n📊 <b>Aniqlik darajasi:</b> {result.similarity_percent}%")
+    if result.episode is not None:
+        lines.append(f"🎞 <b>Qism:</b> {result.episode}")
+    if result.timestamp:
+        lines.append(f"⏱ <b>Kadr vaqti:</b> {result.timestamp}")
+    if result.genres_uz:
+        lines.append(f"🎭 <b>Janrlar:</b> {result.genres_uz}")
+    if result.character_name:
+        lines.append(f"👤 <b>Qahramon:</b> {result.character_name}")
+
+    buttons = []
+    if result.db_anime:
+        lines.append(f"\n🎬 <i>Ushbu anime bizning bot bazamizda mavjud! Quyidagi tugma orqali tomosha qilishingiz mumkin.</i>")
+        buttons.append([InlineKeyboardButton(text="🎬 Botda tomosha qilish", callback_data=f"anime_code_{result.db_anime.code}")])
+    elif result.anilist_url:
+        buttons.append([InlineKeyboardButton(text="🌐 AniList da ko'rish", url=result.anilist_url)])
+
+    if not is_second and result.status == "medium_confidence":
+        lines.append("\n⚠️ <i>Agar bu siz qidirgan anime bo'lmasa, iltimos, <b>2-rasmni</b> (aniqroq kadr yoki personaj yuzini) yuboring!</i>")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    return "\n".join(lines), kb
+
+
+async def _process_image_search(message: Message, state: FSMContext, is_second: bool = False) -> None:
+    """Rasmni yuklab olib, trace.moe va Gemini Vision orqali qidirish jarayoni"""
+    if not message.photo:
+        return
+
+    user = message.from_user
+    is_admin = await db.is_admin(user.id) if user else False
+    bot = message.bot
+    if not bot:
+        return
+
+    status_msg = await message.answer(
+        "🔍 <i>Rasm tahlil qilinmoqda, iltimos kuting...</i>",
+        parse_mode="HTML"
+    )
+
+    try:
+        # Eng katta sifatdagi rasmni yuklab olish
+        photo = message.photo[-1]
+        file_io = io.BytesIO()
+        await bot.download(photo, destination=file_io)
+        image_bytes = file_io.getvalue()
+
+        # Qidiruv servisini ishga tushirish
+        result = await anime_image_search_service.search_by_image(image_bytes, is_second_attempt=is_second)
+
+        # 1-holat: Anime yuqori yoki o'rtacha ishonch bilan topildi
+        if result.status in ("high_confidence", "medium_confidence"):
+            caption, kb = format_anime_search_result(result, is_second=is_second)
+
+            if result.status == "medium_confidence" and not is_second:
+                await state.set_state(UserStates.waiting_for_second_photo)
+                try:
+                    await status_msg.edit_text(caption, reply_markup=kb, parse_mode="HTML")
+                except Exception:
+                    await message.answer(caption, reply_markup=kb, parse_mode="HTML")
+
+                await message.answer(
+                    "⚠️ <i>Agar bu siz qidirgan anime bo'lmasa, iltimos, <b>2-rasmni</b> (aniqroq kadr yoki personaj yuzini) yuboring!</i>",
+                    reply_markup=get_cancel_reply(),
+                    parse_mode="HTML"
+                )
+            else:
+                await state.clear()
+                try:
+                    await status_msg.edit_text(caption, reply_markup=kb, parse_mode="HTML")
+                except Exception:
+                    await message.answer(caption, reply_markup=kb, parse_mode="HTML")
+
+                await message.answer(
+                    "Quyidagi menyudan foydalanishingiz mumkin:",
+                    reply_markup=get_main_menu(is_admin=is_admin)
+                )
+
+        # 2-holat: 1-rasm juda noaniq bo'lib topilmadi -> muloyimlik bilan 2-rasm so'raladi
+        elif not is_second:
+            await state.set_state(UserStates.waiting_for_second_photo)
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+
+            await message.answer(
+                "😔 <b>Kechirasiz, 1-rasm orqali animeni aniq topib bo'lmadi...</b>\n\n"
+                "Rasm biroz xira, juda kichik yoki noaniq bo'lishi mumkin.\n\n"
+                "🙏 <b>Iltimos, aniqroq bo'lishi uchun 2-rasmni yuboring!</b>\n"
+                "<i>(Bosh qahramonning yuzi, yorug'roq kadr yoki yaqinroq lavha)</i>",
+                reply_markup=get_cancel_reply(),
+                parse_mode="HTML"
+            )
+
+        # 3-holat: 2-rasm ham topilmadi
+        else:
+            await state.clear()
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+
+            await message.answer(
+                "😔 <b>Afsuski, 2-rasm orqali ham animeni aniqlash imkoni bo'lmadi.</b>\n\n"
+                "💡 <i>Maslahat: Animening nomini matn orqali qidirib ko'ring yoki sifatliroq boshqa kadr yuboring.</i>",
+                reply_markup=get_main_menu(is_admin=is_admin),
+                parse_mode="HTML"
+            )
+
+    except Exception as e:
+        logger.error(f"Rasm qidiruvida kutilmagan xatolik: {e}", exc_info=True)
+        await state.clear()
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+        await message.answer(
+            "⚠️ <b>Rasm tahlilida kutilmagan xatolik yuz berdi.</b>\n"
+            "Iltimos, birozdan so'ng qayta urinib ko'ring.",
+            reply_markup=get_main_menu(is_admin=is_admin),
+            parse_mode="HTML"
+        )
+
+
+@user_router.message(UserStates.waiting_for_anime_photo, F.photo)
+async def handle_first_photo(message: Message, state: FSMContext) -> None:
+    await _process_image_search(message, state, is_second=False)
+
+
+@user_router.message(UserStates.waiting_for_second_photo, F.photo)
+async def handle_second_photo(message: Message, state: FSMContext) -> None:
+    await _process_image_search(message, state, is_second=True)
+
+
+@user_router.message(UserStates.waiting_for_anime_photo, F.text)
+async def handle_non_photo_first(message: Message) -> None:
+    if message.text == "❌ Bekor qilish":
+        return
+    await message.answer(
+        "📷 Iltimos, animedan olingan <b>rasm (skrinshot)</b> yuboring yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing:",
+        reply_markup=get_cancel_reply(),
+        parse_mode="HTML"
+    )
+
+
+@user_router.message(UserStates.waiting_for_second_photo, F.text)
+async def handle_non_photo_second(message: Message) -> None:
+    if message.text == "❌ Bekor qilish":
+        return
+    await message.answer(
+        "📷 Iltimos, <b>2-rasmni</b> yuboring yoki to'xtatish uchun «❌ Bekor qilish» tugmasini bosing:",
+        reply_markup=get_cancel_reply(),
+        parse_mode="HTML"
+    )
+
+
+@user_router.message(F.photo)
+async def handle_direct_photo(message: Message, state: FSMContext) -> None:
+    """Foydalanuvchi menyusiz to'g'ridan-to'g'ri rasm yuborganda ham avtomatik tahlil qilish"""
+    current_state = await state.get_state()
+    if current_state:
+        return
+    await _process_image_search(message, state, is_second=False)
 
 
 # ------------------ INLINE CALLBACKS (ANIME VA QISMLAR) ------------------
