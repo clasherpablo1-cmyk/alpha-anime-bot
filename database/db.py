@@ -91,11 +91,39 @@ class DatabaseManager:
             stmt = select(User).where(User.id == user_id)
             result = await session.execute(stmt)
             user = result.scalar_one_or_none()
-            if user:
+            if not user:
+                user = User(
+                    id=user_id,
+                    username=None,
+                    full_name=f"Admin_{user_id}",
+                    is_admin=is_admin
+                )
+                session.add(user)
+            else:
                 user.is_admin = is_admin
-                await session.commit()
-                return True
-            return False
+            await session.commit()
+            await session.refresh(user)
+
+            # MongoDB Atlas bilan sinxronlashtirish
+            try:
+                from database.mongo_manager import mongo_manager
+                if mongo_manager.is_configured:
+                    await mongo_manager.upsert_user({
+                        "id": user.id,
+                        "username": user.username,
+                        "full_name": user.full_name,
+                        "is_admin": user.is_admin
+                    })
+            except Exception:
+                pass
+            return True
+
+    async def get_admins(self) -> List[User]:
+        """Barcha bot adminlari ro'yxatini olish"""
+        async with self.session_factory() as session:
+            stmt = select(User).where(User.is_admin == True)
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
 
     async def is_admin(self, user_id: int) -> bool:
         if config.is_admin(user_id):

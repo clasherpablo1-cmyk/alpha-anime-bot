@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, URLInputFile
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
@@ -107,6 +107,99 @@ async def handle_stats(message: Message) -> None:
         f"🤖 Bot: @{config.BOT_USERNAME}"
     )
     await message.answer(text, parse_mode="HTML")
+
+
+# ------------------ ADMINLARNI BOSHQARISH (/add_admin, /remove_admin, /admins) ------------------
+@admin_router.message(Command("add_admin"))
+async def handle_add_admin_command(message: Message, command: CommandObject) -> None:
+    user = message.from_user
+    if not user or not await db.is_admin(user.id):
+        return
+
+    arg = command.args.strip() if command.args else ""
+    if not arg or not arg.isdigit():
+        await message.answer(
+            "ℹ️ <b>Yangi admin qo'shish uchun uning Telegram ID raqamini yozing:</b>\n\n"
+            "Format: <code>/add_admin 123456789</code>\n\n"
+            "<i>💡 Foydalanuvchi o'z ID raqamini @userinfobot orqali bilib olishi mumkin.</i>",
+            parse_mode="HTML"
+        )
+        return
+
+    target_id = int(arg)
+    if await db.is_admin(target_id):
+        await message.answer(
+            f"ℹ️ <code>{target_id}</code> raqamli foydalanuvchi allaqachon botda <b>Admin</b>!",
+            parse_mode="HTML"
+        )
+        return
+
+    success = await db.set_user_admin(target_id, is_admin=True)
+    if success:
+        await message.answer(
+            f"🎉 <b>Muvaffaqiyatli!</b>\n"
+            f"Foydalanuvchi <code>{target_id}</code> botga <b>Admin</b> qilindi.\n\n"
+            f"Endi u botga kirib /admin buyrug'ini bossa, to'liq Admin Panel ochiladi.",
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer("❌ Admin qilishda xatolik yuz berdi.", parse_mode="HTML")
+
+
+@admin_router.message(Command("remove_admin"))
+async def handle_remove_admin_command(message: Message, command: CommandObject) -> None:
+    user = message.from_user
+    if not user or not await db.is_admin(user.id):
+        return
+
+    arg = command.args.strip() if command.args else ""
+    if not arg or not arg.isdigit():
+        await message.answer(
+            "ℹ️ <b>Adminlik huquqini bekor qilish:</b>\n\n"
+            "Format: <code>/remove_admin 123456789</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    target_id = int(arg)
+    if config.is_admin(target_id):
+        await message.answer("⚠️ Ushbu foydalanuvchi asosiy config super-admini, uni o'chirib bo'lmaydi!", parse_mode="HTML")
+        return
+
+    await db.set_user_admin(target_id, is_admin=False)
+    await message.answer(
+        f"✅ <code>{target_id}</code> ning adminlik huquqi bekor qilindi.",
+        parse_mode="HTML"
+    )
+
+
+@admin_router.message(Command("admins"))
+async def handle_list_admins_command(message: Message) -> None:
+    user = message.from_user
+    if not user or not await db.is_admin(user.id):
+        return
+
+    admins = await db.get_admins()
+    config_admin_ids = config.admin_ids
+
+    lines = ["👑 <b>BOT ADMINLARI RO'YXATI:</b>\n━━━━━━━━━━━━━━━━━━━━"]
+    added_ids = set()
+
+    for adm in admins:
+        added_ids.add(adm.id)
+        u_tag = f"@{adm.username}" if adm.username else "username yo'q"
+        name = adm.full_name or f"ID: {adm.id}"
+        lines.append(f"• <b>{name}</b> ({u_tag}) — <code>{adm.id}</code>")
+
+    for cid in config_admin_ids:
+        if cid not in added_ids:
+            lines.append(f"• <b>Super Admin</b> — <code>{cid}</code>")
+
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
+    lines.append("➕ <i>Yangi admin qo'shish:</i> <code>/add_admin ID</code>")
+    lines.append("➖ <i>Adminni o'chirish:</i> <code>/remove_admin ID</code>")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
 
 
 # ------------------ ZAXIRALASH (BACKUP) ------------------
