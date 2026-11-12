@@ -19,7 +19,8 @@ from services.post_generator import format_channel_post, format_channel_catalog,
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_reply, get_batch_upload_menu
 from keyboards.inline import (
     get_admin_post_confirm_keyboard,
-    get_anime_quick_save_keyboard
+    get_anime_quick_save_keyboard,
+    get_cancel_inline
 )
 
 logger = logging.getLogger(__name__)
@@ -352,13 +353,15 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
             safe_uz = html.escape(default_uz, quote=False)
             safe_genres = html.escape(str(anilist_data.get('genres') or 'Anime'), quote=False)
             safe_studio = html.escape(str(anilist_data.get('studio') or "Noma'lum"), quote=False)
+            safe_year = str(anilist_data.get('year') or "Noma'lum")
+            safe_episodes = str(anilist_data.get('episodes') or "Noma'lum")
 
             preview_msg = (
                 f"✅ <b>AniList'dan ma'lumot topildi!</b>\n\n"
                 f"🎬 <b>Nomi:</b> {safe_title}\n"
                 f"🇺🇿 <b>O'zbekcha:</b> {safe_uz}\n"
-                f"📅 <b>Yili:</b> {anilist_data.get('year')} | 🎭 <b>Janr:</b> {safe_genres}\n"
-                f"🎞 <b>Qismlar:</b> {anilist_data.get('episodes')} ta | 🏢 <b>Studiya:</b> {safe_studio}\n"
+                f"📅 <b>Yili:</b> {safe_year} | 🎭 <b>Janr:</b> {safe_genres}\n"
+                f"🎞 <b>Qismlar:</b> {safe_episodes} ta | 🏢 <b>Studiya:</b> {safe_studio}\n"
                 f"🔑 <b>Tavsiya etilgan kod:</b> <code>#{next_code}</code>\n\n"
                 f"⚡️ <i>1-klikda saqlash uchun «⚡️ Saqlash va qism yuklash» tugmasini bosing yoki nomni o'zgartirish uchun yangi nom yozing:</i>"
             )
@@ -391,7 +394,7 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
             try:
                 await status_msg.edit_text(
                     not_found_msg,
-                    reply_markup=get_cancel_reply(),
+                    reply_markup=get_cancel_inline(),
                     parse_mode="HTML"
                 )
             except Exception:
@@ -405,7 +408,7 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
         try:
             await status_msg.edit_text(
                 "❌ Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
-                reply_markup=get_cancel_reply()
+                reply_markup=get_cancel_inline()
             )
         except Exception:
             await message.answer(
@@ -448,7 +451,11 @@ async def process_anime_title_uz(message: Message, state: FSMContext) -> None:
     text = message.text.strip()
     data = await state.get_data()
 
-    title_uz = data["title_romaji"] if text == "." else text
+    if text == ".":
+        title_uz = data.get("title_uz") or data.get("title_romaji") or "Noma'lum"
+    else:
+        title_uz = text
+
     await state.update_data(title_uz=title_uz)
 
     suggested_code = data.get("suggested_code", 1)
@@ -468,10 +475,11 @@ async def process_anime_code(message: Message, state: FSMContext) -> None:
     text = message.text.strip()
     data = await state.get_data()
 
+    clean_text = text.lstrip("#").strip()
     if text == ".":
         code = data.get("suggested_code", 1)
-    elif text.isdigit():
-        code = int(text)
+    elif clean_text.isdigit():
+        code = int(clean_text)
     else:
         await message.answer("❌ Iltimos, faqat raqam kiriting!")
         return
@@ -1024,7 +1032,7 @@ async def handle_confirm_post(callback: CallbackQuery) -> None:
         await callback.answer(f"❌ Xatolik: {e}", show_alert=True)
 
 
-@admin_router.callback_query(F.data == "cancel_admin_action")
+@admin_router.callback_query(F.data.in_(["cancel_admin_action", "cancel_action"]))
 async def handle_cancel_admin_action(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await callback.answer("Bekor qilindi.")

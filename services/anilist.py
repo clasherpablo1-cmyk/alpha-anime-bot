@@ -45,7 +45,7 @@ async def translate_uz_to_en(text: str) -> str:
             async with s.get(url, headers={"User-Agent": _BROWSER_HEADERS["User-Agent"]}, timeout=aiohttp.ClientTimeout(total=2.5)) as r:
                 if r.status == 200:
                     res = await r.json()
-                    translated = res[0][0][0]
+                    translated = "".join([part[0] for part in res[0] if part and len(part) > 0 and part[0]])
                     return translated.strip() if translated else text
     except Exception:
         pass
@@ -142,18 +142,32 @@ class AniListService:
         # 1. Mashhur o'zbekcha nomlar lug'atidan tekshirish (0ms)
         resolved_title = None
         lower_title = clean_title.lower()
+        norm_title = re.sub(r'[^\w\s]', '', lower_title).strip()
         try:
             from services.image_search import POPULAR_ANIME_UZ
             for romaji, uz in POPULAR_ANIME_UZ.items():
                 uz_lower = uz.lower()
-                if lower_title == uz_lower or lower_title in uz_lower or uz_lower in lower_title:
+                norm_uz = re.sub(r'[^\w\s]', '', uz_lower).strip()
+                norm_romaji = re.sub(r'[^\w\s]', '', romaji.lower()).strip()
+                if (norm_title == norm_uz or 
+                    norm_title in norm_uz or 
+                    norm_uz in norm_title or
+                    lower_title == uz_lower or
+                    lower_title in uz_lower or
+                    uz_lower in lower_title or
+                    norm_title == norm_romaji or
+                    norm_title in norm_romaji):
                     resolved_title = romaji
                     break
             if not resolved_title:
                 import difflib
                 for romaji, uz in POPULAR_ANIME_UZ.items():
                     main_uz = uz.split('(')[0].strip().lower()
-                    if len(lower_title) >= 4 and difflib.SequenceMatcher(None, lower_title, main_uz).ratio() >= 0.78:
+                    norm_main = re.sub(r'[^\w\s]', '', main_uz).strip()
+                    if len(norm_title) >= 4 and (
+                        difflib.SequenceMatcher(None, norm_title, norm_main).ratio() >= 0.78 or
+                        difflib.SequenceMatcher(None, lower_title, main_uz).ratio() >= 0.78
+                    ):
                         resolved_title = romaji
                         break
         except Exception:
@@ -201,12 +215,24 @@ class AniListService:
                     from services.image_search import POPULAR_ANIME_UZ
                     r_title = (media.get("title", {}).get("romaji") or "").lower()
                     e_title = (media.get("title", {}).get("english") or "").lower()
-                    for candidate_key in [r_title, e_title, clean_title.lower()]:
-                        if candidate_key in POPULAR_ANIME_UZ:
+                    candidate_keys = [
+                        r_title,
+                        e_title,
+                        re.sub(r'[^\w\s]', '', r_title).strip(),
+                        re.sub(r'[^\w\s]', '', e_title).strip(),
+                        clean_title.lower(),
+                        norm_title,
+                    ]
+                    for candidate_key in candidate_keys:
+                        if candidate_key and candidate_key in POPULAR_ANIME_UZ:
                             uz_canonical = POPULAR_ANIME_UZ[candidate_key].split('(')[0].strip()
                             break
-                    if not uz_canonical and resolved_title and resolved_title.lower() in POPULAR_ANIME_UZ:
-                        uz_canonical = POPULAR_ANIME_UZ[resolved_title.lower()].split('(')[0].strip()
+                    if not uz_canonical and resolved_title:
+                        res_lower = resolved_title.lower()
+                        if res_lower in POPULAR_ANIME_UZ:
+                            uz_canonical = POPULAR_ANIME_UZ[res_lower].split('(')[0].strip()
+                        elif re.sub(r'[^\w\s]', '', res_lower).strip() in POPULAR_ANIME_UZ:
+                            uz_canonical = POPULAR_ANIME_UZ[re.sub(r'[^\w\s]', '', res_lower).strip()].split('(')[0].strip()
                 except Exception:
                     pass
 
