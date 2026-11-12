@@ -125,20 +125,7 @@ async def main() -> None:
     )
     dp = Dispatcher(storage=MemoryStorage())
 
-    # 2. Lifecycle hooks
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
-
-    # 3. Middlewares
-    sub_middleware = SubscriptionCheckMiddleware()
-    dp.message.middleware(sub_middleware)
-    dp.callback_query.middleware(sub_middleware)
-
-    # 4. Routerlarni ulash (Admin birinchi bo'lib tekshiriladi)
-    dp.include_router(admin_router)
-    dp.include_router(user_router)
-
-    # 5. 24/7 Web Serverni fon rejimida ishga tushirish (Render, Koyeb, Railway, UptimeRobot uchun)
+    # 2. 24/7 Web Serverni fon rejimida birinchi bo'lib ishga tushirish (Render /health check darhol 200 berishi uchun)
     web_runner = None
     if config.WEB_SERVER_ENABLED:
         try:
@@ -146,16 +133,48 @@ async def main() -> None:
         except Exception as e:
             logger.error(f"Veb-serverni ishga tushirishda xatolik: {e}")
 
-    # 6. Eski to'planib qolgan xabarlarni tozalash (drop pending updates)
-    await bot.delete_webhook(drop_pending_updates=True)
+    # 3. Dastlabki ma'lumotlar bazasi va zaxira initsializatsiyasi (1 marta ishlaydi)
+    try:
+        await on_startup(bot)
+    except Exception as e:
+        logger.error(f"Startup initsializatsiyasida ogohlantirish: {e}")
 
-    # 7. Pollingni avto-tiklanish (Auto-Reconnect) bilan ishga tushirish
+    # 4. Middlewares
+    sub_middleware = SubscriptionCheckMiddleware()
+    dp.message.middleware(sub_middleware)
+    dp.callback_query.middleware(sub_middleware)
+
+    # 5. Routerlarni ulash (Admin birinchi bo'lib tekshiriladi)
+    dp.include_router(admin_router)
+    dp.include_router(user_router)
+
+    # 6. Pollingni avto-tiklanish (Auto-Reconnect) va Render Blue-Green Conflict Guard bilan ishga tushirish
+    from aiogram.exceptions import TelegramConflictError
+    from aiogram.client.session.aiohttp import AiohttpSession
+
     try:
         while True:
             try:
+                # Agar sessiya avval yopilgan bo'lsa, yangi sessiya ochish
+                if bot.session and bot.session.closed:
+                    bot.session = AiohttpSession()
+
+                # Eski to'planib qolgan xabarlarni tozalash (drop pending updates)
+                try:
+                    await bot.delete_webhook(drop_pending_updates=True)
+                except Exception as dw_err:
+                    logger.debug(f"delete_webhook ogohlantirish: {dw_err}")
+
                 logger.info("Telegram polling boshlanmoqda...")
-                await dp.start_polling(bot, handle_signals=False)
+                await dp.start_polling(
+                    bot,
+                    handle_signals=False,
+                    close_bot_session=False
+                )
                 break
+            except TelegramConflictError:
+                logger.warning("⚠️ Boshqa bot instansi hali faol (Render ko'chish jarayoni). 5 soniyadan so'ng qayta ulanadi...")
+                await asyncio.sleep(5)
             except (KeyboardInterrupt, SystemExit):
                 break
             except Exception as e:
