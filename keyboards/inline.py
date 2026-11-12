@@ -154,6 +154,30 @@ def get_admin_post_confirm_keyboard(anime_code: int) -> InlineKeyboardMarkup:
     )
 
 
+def get_anime_quick_save_keyboard() -> InlineKeyboardMarkup:
+    """Anime topilganda 1-klik bilan tezkor saqlash va qism yuklashga o'tish"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⚡️ Saqlash va qism yuklash",
+                    callback_data="admin_quick_save"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✏️ Nomni o'zgartirish",
+                    callback_data="admin_edit_title"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish",
+                    callback_data="cancel_admin_action"
+                )
+            ]
+        ]
+    )
+
+
 def get_cancel_inline() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[

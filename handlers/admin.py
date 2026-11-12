@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Optional
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, URLInputFile
+from aiogram.types import Message, CallbackQuery, URLInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -13,7 +13,10 @@ from database.db import db
 from database.models import Anime
 from services.post_generator import format_channel_post, format_channel_catalog, sync_channel_catalog
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_reply, get_batch_upload_menu
-from keyboards.inline import get_admin_post_confirm_keyboard
+from keyboards.inline import (
+    get_admin_post_confirm_keyboard,
+    get_anime_quick_save_keyboard
+)
 
 logger = logging.getLogger(__name__)
 
@@ -312,53 +315,113 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
     if not title:
         return
 
-    await message.answer("⏳ AniList bazasidan qidirilmoqda...")
-    anilist_data = await anilist_service.search_anime(title)
+    status_msg = await message.answer("⚡️ <i>AniList bazasidan qidirilmoqda...</i>", parse_mode="HTML")
 
-    next_code = await db.get_next_anime_code()
+    try:
+        anilist_data = await anilist_service.search_anime(title)
+        next_code = await db.get_next_anime_code()
 
-    if anilist_data:
-        romaji_title = anilist_data.get("title_romaji") or title
-        await state.update_data(
-            anilist_data=anilist_data,
-            title_romaji=romaji_title,
-            year=anilist_data.get("year"),
-            genres=anilist_data.get("genres"),
-            description=anilist_data.get("description"),
-            poster_url=anilist_data.get("cover_image"),
-            total_episodes=anilist_data.get("episodes", 12),
-            status=anilist_data.get("status", "Tugallangan"),
-            suggested_code=next_code
-        )
+        if anilist_data:
+            romaji_title = anilist_data.get("title_romaji") or title
+            eng_title = anilist_data.get("title_english") or ""
+            default_uz = title
 
-        preview_msg = (
-            f"✅ <b>AniList'dan ma'lumot topildi!</b>\n\n"
-            f"🎬 <b>Nomi:</b> {romaji_title}\n"
-            f"📅 <b>Yili:</b> {anilist_data.get('year')}\n"
-            f"🎭 <b>Janrlar:</b> {anilist_data.get('genres')}\n"
-            f"🎞 <b>Qismlar:</b> {anilist_data.get('episodes')} ta\n"
-            f"🏢 <b>Studiya:</b> {anilist_data.get('studio')}\n\n"
-            f"Endi ushbu animening <b>O'zbekcha nomini</b> kiriting:\n"
-            f"<i>(Agar shunday qoldirmoqchi bo'lsangiz «.» nuqta yuboring)</i>"
-        )
-        await state.set_state(AddAnimeStates.waiting_for_title_uz)
-        await message.answer(preview_msg, parse_mode="HTML")
-    else:
-        # Qo'lda kiritish
-        await state.update_data(
-            title_romaji=title,
-            year=2024,
-            genres="Sarguzasht, Jangari",
-            description="Qiziqarli anime sarguzashti.",
-            poster_url=None,
-            total_episodes=12,
-            status="Tugallangan",
-            suggested_code=next_code
-        )
-        await state.set_state(AddAnimeStates.waiting_for_title_uz)
-        await message.answer(
-            f"ℹ️ AniList'da topilmadi. Animening o'zbekcha nomini kiriting:\n"
-            f"(Kiritilgan nom: {title})",
+            await state.update_data(
+                anilist_data=anilist_data,
+                title_romaji=romaji_title,
+                title_uz=default_uz,
+                year=anilist_data.get("year"),
+                genres=anilist_data.get("genres"),
+                description=anilist_data.get("description"),
+                poster_url=anilist_data.get("cover_image"),
+                total_episodes=anilist_data.get("episodes", 12),
+                status=anilist_data.get("status", "Tugallangan"),
+                suggested_code=next_code,
+                code=next_code
+            )
+
+            title_display = f"{romaji_title}"
+            if eng_title and eng_title.lower() != romaji_title.lower():
+                title_display += f" ({eng_title})"
+
+            preview_msg = (
+                f"✅ <b>AniList'dan ma'lumot topildi!</b>\n\n"
+                f"🎬 <b>Nomi:</b> {title_display}\n"
+                f"🇺🇿 <b>O'zbekcha:</b> {default_uz}\n"
+                f"📅 <b>Yili:</b> {anilist_data.get('year')} | 🎭 <b>Janr:</b> {anilist_data.get('genres')}\n"
+                f"🎞 <b>Qismlar:</b> {anilist_data.get('episodes')} ta | 🏢 <b>Studiya:</b> {anilist_data.get('studio')}\n"
+                f"🔑 <b>Tavsiya etilgan kod:</b> <code>#{next_code}</code>\n\n"
+                f"⚡️ <i>1-klikda saqlash uchun «⚡️ Saqlash va qism yuklash» tugmasini bosing yoki nomni o'zgartirish uchun yangi nom yozing:</i>"
+            )
+            await state.set_state(AddAnimeStates.waiting_for_title_uz)
+            try:
+                await status_msg.edit_text(preview_msg, reply_markup=get_anime_quick_save_keyboard(), parse_mode="HTML")
+            except Exception:
+                await message.answer(preview_msg, reply_markup=get_anime_quick_save_keyboard(), parse_mode="HTML")
+        else:
+            # Qo'lda kiritish
+            await state.update_data(
+                title_romaji=title,
+                title_uz=title,
+                year=2024,
+                genres="Sarguzasht, Jangari",
+                description="Qiziqarli anime sarguzashti.",
+                poster_url=None,
+                total_episodes=12,
+                status="Tugallangan",
+                suggested_code=next_code,
+                code=next_code
+            )
+            await state.set_state(AddAnimeStates.waiting_for_title_uz)
+            try:
+                await status_msg.edit_text(
+                    f"ℹ️ <b>AniList'da topilmadi.</b>\n\n"
+                    f"Animening o'zbekcha nomini tasdiqlash uchun «.» nuqta yuboring yoki yangi nom kiriting:\n"
+                    f"<i>(Kiritilgan nom: {title})</i>",
+                    reply_markup=get_cancel_reply(),
+                    parse_mode="HTML"
+                )
+            except Exception:
+                await message.answer(
+                    f"ℹ️ <b>AniList'da topilmadi.</b>\n\n"
+                    f"Animening o'zbekcha nomini tasdiqlash uchun «.» nuqta yuboring yoki yangi nom kiriting:\n"
+                    f"<i>(Kiritilgan nom: {title})</i>",
+                    reply_markup=get_cancel_reply(),
+                    parse_mode="HTML"
+                )
+    except Exception as e:
+        logger.error(f"Anime qidirishda xatolik: {e}", exc_info=True)
+        try:
+            await status_msg.edit_text(
+                "❌ Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
+                reply_markup=get_cancel_reply()
+            )
+        except Exception:
+            await message.answer(
+                "❌ Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
+                reply_markup=get_cancel_reply()
+            )
+
+
+@admin_router.callback_query(F.data == "admin_quick_save")
+async def handle_admin_quick_save(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    if not data or "code" not in data:
+        await callback.answer("Ma'lumotlar eskirgan, qaytadan boshlang.", show_alert=True)
+        return
+
+    await callback.answer("⏳ Saqlanmoqda...")
+    if callback.message:
+        await finalize_add_anime(callback.message, state)
+
+
+@admin_router.callback_query(F.data == "admin_edit_title")
+async def handle_admin_edit_title(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    if callback.message:
+        await callback.message.answer(
+            "✏️ Animening yangi <b>O'zbekcha nomini</b> yozib yuboring:",
+            reply_markup=get_cancel_reply(),
             parse_mode="HTML"
         )
 
@@ -456,8 +519,26 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
         f"📅 <b>Yili:</b> {anime.year}\n"
         f"🎭 <b>Janr:</b> {anime.genres}\n\n"
         f"📌 <i>Kanal katalogi avtomatik jimgina yangilandi!</i>\n"
-        f"Endi ushbu anime uchun qismlarni yuklashingiz mumkin."
+        f"Endi darhol qismlarni yuklash uchun quyidagi tugmani bosing:"
     )
+
+    action_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⚡️ Qismlarni yuklash (Ommaviy)",
+                    callback_data=f"admin_batch_{anime.code}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📢 Kanalga post chiqarish",
+                    callback_data=f"admin_post_{anime.code}"
+                )
+            ]
+        ]
+    )
+
     # Kanal katalogini avtomat yangilash
     try:
         await sync_channel_catalog(message.bot)
@@ -471,7 +552,7 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
     except Exception as bkp_err:
         logger.warning(f"Avtomatik zaxiralashda ogohlantirish: {bkp_err}")
 
-    await message.answer(confirm_text, reply_markup=get_admin_menu(), parse_mode="HTML")
+    await message.answer(confirm_text, reply_markup=action_kb, parse_mode="HTML")
 
 
 # ------------------ HELPER: EPISODE NUMBER EXTRACTOR ------------------
