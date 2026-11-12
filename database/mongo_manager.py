@@ -122,13 +122,20 @@ class MongoManager:
 
             try:
                 uri = config.MONGODB_URI.strip()
-                self.client = AsyncIOMotorClient(
-                    uri,
-                    tlsCAFile=certifi.where(),
-                    serverSelectionTimeoutMS=2500,
-                    connectTimeoutMS=2500,
-                    socketTimeoutMS=3500
-                )
+                client_kwargs: Dict[str, Any] = {
+                    "serverSelectionTimeoutMS": 2500,
+                    "connectTimeoutMS": 2500,
+                    "socketTimeoutMS": 3500
+                }
+
+                # Faqatgina Atlas (mongodb+srv://) yoki TLS/SSL talab qilingan holatlarda certifi CA fayli beriladi.
+                # Docker yoki lokal MongoDB uchun SSL shart emas va ulanish xato bermaydi.
+                is_atlas = uri.startswith("mongodb+srv://")
+                has_tls = "tls=true" in uri.lower() or "ssl=true" in uri.lower()
+                if is_atlas or has_tls:
+                    client_kwargs["tlsCAFile"] = certifi.where()
+
+                self.client = AsyncIOMotorClient(uri, **client_kwargs)
                 self.db = self.client[config.MONGODB_DB_NAME]
                 # Test ping
                 await self.db.command("ping")

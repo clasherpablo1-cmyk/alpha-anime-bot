@@ -1,0 +1,77 @@
+# ==============================================================================
+# 🎌 Alpha Anime Bot — Docker Compose Architecture
+# ==============================================================================
+# Standards: Father Mode v7.0, Strict Isolation, Zero Collisions.
+#
+# Ushbu konfiguratsiya boshqa loyihalar yoki Docker konteynerlari bilan
+# to'qnashmasligi (conflict bo'lmasligi) uchun qat'iy izolyatsiya qilingan:
+# 1. Port izolyatsiyasi: Host porti 27027 qilib belgilangan (standart 27017 bilan urishmaydi).
+# 2. Tarmoq izolyatsiyasi: Maxsus 'alpha_anime_isolated_net' tarmog'i (boshqa konteynerlar ko'rmaydi).
+# 3. Volume izolyatsiyasi: Maxsus 'alpha_anime_mongo_data' disk xotirasi.
+# 4. Avtorizatsiya: Maxsus foydalanuvchi va parol bilan himoyalangan.
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # 🍃 1. ALOHIDA IZOLYATSIYA QILINGAN MONGODB BAZASI
+  alpha_anime_db:
+    image: mongo:7.0
+    container_name: alpha_anime_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-alpha_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-alpha_anime_2026_pass}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME:-AlphaAnimeBotDB}
+    # Standart 27017 emas, 27027 portga bog'langan (boshqa MongoDB bazalar bilan to'qnashmasligi uchun)
+    ports:
+      - "${DOCKER_MONGO_PORT:-27027}:27017"
+    volumes:
+      - alpha_anime_mongo_data:/data/db
+    networks:
+      - alpha_anime_isolated_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # 🤖 2. ALPHA ANIME BOT KONTEYNERI (Ixtiyoriy: Agar botni ham Dockerda yurgizmoqchi bo'lsangiz)
+  alpha_anime_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alpha_anime_bot
+    restart: unless-stopped
+    depends_on:
+      alpha_anime_db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Konteyner ichida bot to'g'ridan-to'g'ri ichki izolyatsiyalangan tarmoq orqali ulanadi
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-alpha_admin}:${MONGO_ROOT_PASSWORD:-alpha_anime_2026_pass}@alpha_anime_db:27017/${MONGODB_DB_NAME:-AlphaAnimeBotDB}?authSource=admin
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-AlphaAnimeBotDB}
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - alpha_anime_bot_data:/app/data
+    networks:
+      - alpha_anime_isolated_net
+    profiles:
+      - full  # 'docker compose up -d' faqat bazani yoqadi, 'docker compose --profile full up -d' ikkalasini yoqadi
+
+# 🛡️ FAQAT USHBU LOYIHA UCHUN MAXSUS TARMOQ
+networks:
+  alpha_anime_isolated_net:
+    name: alpha_anime_isolated_net
+    driver: bridge
+
+# 💾 FAQAT USHBU LOYIHA UCHUN MAXSUS SAQLASH DISKLARI
+volumes:
+  alpha_anime_mongo_data:
+    name: alpha_anime_mongo_data
+  alpha_anime_bot_data:
+    name: alpha_anime_bot_data
