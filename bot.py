@@ -24,6 +24,22 @@ from handlers.user import user_router
 from services.web_server import start_web_server
 from services.backup_service import backup_service
 
+import urllib.request
+import urllib.parse
+import traceback
+
+def notify_cloud_log(text: str) -> None:
+    try:
+        url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
+        payload = urllib.parse.urlencode({
+            "chat_id": config.BACKUP_CHANNEL_ID,
+            "text": f"📡 [Render Deploy Log]\n{text}"[:4000]
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers={"User-Agent": "RenderDeployLogger/1.0"})
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
+
 # Logging sozlamalari
 logging.basicConfig(
     level=logging.INFO,
@@ -130,13 +146,17 @@ async def main() -> None:
     if config.WEB_SERVER_ENABLED:
         try:
             web_runner = await start_web_server(host=config.HOST, port=config.PORT)
+            notify_cloud_log(f"✅ Web server ko'tarildi: {config.HOST}:{config.PORT}")
         except Exception as e:
+            notify_cloud_log(f"❌ Web server xatosi: {e}")
             logger.error(f"Veb-serverni ishga tushirishda xatolik: {e}")
 
     # 3. Dastlabki ma'lumotlar bazasi va zaxira initsializatsiyasi (1 marta ishlaydi)
     try:
         await on_startup(bot)
+        notify_cloud_log("✅ on_startup yakunlandi (DB & Cache tayyor).")
     except Exception as e:
+        notify_cloud_log(f"❌ Startup initsializatsiyasida ogohlantirish: {e}")
         logger.error(f"Startup initsializatsiyasida ogohlantirish: {e}")
 
     # 4. Middlewares
@@ -166,6 +186,7 @@ async def main() -> None:
                     logger.debug(f"delete_webhook ogohlantirish: {dw_err}")
 
                 logger.info("Telegram polling boshlanmoqda...")
+                notify_cloud_log("⚡️ Telegram polling boshlanmoqda...")
                 await dp.start_polling(
                     bot,
                     handle_signals=False,
@@ -173,11 +194,13 @@ async def main() -> None:
                 )
                 break
             except TelegramConflictError:
+                notify_cloud_log("⚠️ TelegramConflictError ushlandi! 5 soniyada qayta uriniladi...")
                 logger.warning("⚠️ Boshqa bot instansi hali faol (Render ko'chish jarayoni). 5 soniyadan so'ng qayta ulanadi...")
                 await asyncio.sleep(5)
             except (KeyboardInterrupt, SystemExit):
                 break
             except Exception as e:
+                notify_cloud_log(f"⚠️ Polling xatosi: {e}. 3s da qayta ulanadi...")
                 logger.error(f"Tarmoq uzilishi: {e}. 3 soniyadan so'ng qayta ulanadi...")
                 await asyncio.sleep(3)
     finally:
@@ -192,6 +215,12 @@ async def main() -> None:
 
 if __name__ == "__main__":
     try:
+        notify_cloud_log(f"🟢 Render Container ishga tushdi!\nPython: {sys.version}\nOS: {sys.platform}\nPORT: {config.PORT}")
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Bot to'xtatildi.")
+    except Exception as e:
+        err_msg = traceback.format_exc()
+        notify_cloud_log(f"❌ CRITICAL CRASH IN MAIN:\n{err_msg}")
+        logger.critical(f"Botda halokatli xatolik: {err_msg}")
+        sys.exit(1)
