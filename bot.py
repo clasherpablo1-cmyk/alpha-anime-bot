@@ -1,6 +1,24 @@
-import asyncio
-import logging
 import sys
+import os
+import urllib.request
+import urllib.parse
+import traceback
+
+def notify_cloud_early(text: str) -> None:
+    try:
+        token = os.environ.get("BOT_TOKEN", "8623305387:AAGAuI0_SfT1tVODQDpY6xz1NOw_y0AIirA")
+        chat_id = os.environ.get("BACKUP_CHANNEL_ID", "-1003957205922")
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = urllib.parse.urlencode({
+            "chat_id": chat_id,
+            "text": f"📡 [Render Early Boot]\n{text}"[:4000]
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers={"User-Agent": "RenderBoot/1.0"})
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
+
+notify_cloud_early(f"🚀 bot.py boshlandi!\nPython: {sys.version.split()[0]}\nOS: {sys.platform}\nPORT: {os.environ.get('PORT', 'unset')}")
 
 if sys.platform.startswith("win"):
     try:
@@ -9,38 +27,30 @@ if sys.platform.startswith("win"):
     except Exception:
         pass
 
-from aiogram import Bot, Dispatcher
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand
+try:
+    import asyncio
+    import logging
+    from aiogram import Bot, Dispatcher
+    from aiogram.enums import ParseMode
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.fsm.storage.memory import MemoryStorage
+    from aiogram.types import BotCommand
 
-from config import config
-from database.db import db
-from middlewares.subscription import SubscriptionCheckMiddleware
-from handlers.admin import admin_router
-from handlers.user import user_router
+    from config import config
+    from database.db import db
+    from middlewares.subscription import SubscriptionCheckMiddleware
+    from handlers.admin import admin_router
+    from handlers.user import user_router
 
-from services.web_server import start_web_server
-from services.backup_service import backup_service
-
-import urllib.request
-import urllib.parse
-import traceback
+    from services.web_server import start_web_server
+    from services.backup_service import backup_service
+    notify_cloud_early("✅ Barcha modullar muvaffaqiyatli import qilindi!")
+except Exception as imp_err:
+    notify_cloud_early(f"❌ IMPORT XATOSI:\n{traceback.format_exc()}")
+    raise
 
 def notify_cloud_log(text: str) -> None:
-    try:
-        url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
-        payload = urllib.parse.urlencode({
-            "chat_id": config.BACKUP_CHANNEL_ID,
-            "text": f"📡 [Render Deploy Log]\n{text}"[:4000]
-        }).encode("utf-8")
-        req = urllib.request.Request(url, data=payload, headers={"User-Agent": "RenderDeployLogger/1.0"})
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
-
-# Logging sozlamalari
+    notify_cloud_early(text)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
