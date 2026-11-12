@@ -175,27 +175,29 @@ class DatabaseManager:
             )
             session.add(anime)
             await session.commit()
-            await session.refresh(anime)
+            stmt = select(Anime).where(Anime.id == anime.id).options(selectinload(Anime.episodes))
+            res = await session.execute(stmt)
+            loaded_anime = res.scalar_one()
 
             # MongoDB Atlas fon sinxronlash
             try:
                 from .mongo_manager import mongo_manager
                 if mongo_manager.is_configured:
                     asyncio.create_task(mongo_manager.upsert_anime({
-                        "code": anime.code,
-                        "title_uz": anime.title_uz,
-                        "title_romaji": anime.title_romaji,
-                        "year": anime.year,
-                        "genres": anime.genres,
-                        "description": anime.description,
-                        "poster_file_id": anime.poster_file_id,
-                        "total_episodes": anime.total_episodes,
-                        "status": anime.status
+                        "code": loaded_anime.code,
+                        "title_uz": loaded_anime.title_uz,
+                        "title_romaji": loaded_anime.title_romaji,
+                        "year": loaded_anime.year,
+                        "genres": loaded_anime.genres,
+                        "description": loaded_anime.description,
+                        "poster_file_id": loaded_anime.poster_file_id,
+                        "total_episodes": loaded_anime.total_episodes,
+                        "status": loaded_anime.status
                     }))
             except Exception:
                 pass
 
-            return anime
+            return loaded_anime
 
     async def get_anime_by_code(self, code: int) -> Optional[Anime]:
         async with self.session_factory() as session:

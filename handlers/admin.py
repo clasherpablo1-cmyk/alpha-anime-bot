@@ -1,3 +1,4 @@
+import html
 import re
 import asyncio
 import logging
@@ -344,12 +345,17 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
             if eng_title and eng_title.lower() != romaji_title.lower():
                 title_display += f" ({eng_title})"
 
+            safe_title = html.escape(title_display, quote=False)
+            safe_uz = html.escape(default_uz, quote=False)
+            safe_genres = html.escape(str(anilist_data.get('genres') or 'Anime'), quote=False)
+            safe_studio = html.escape(str(anilist_data.get('studio') or "Noma'lum"), quote=False)
+
             preview_msg = (
                 f"✅ <b>AniList'dan ma'lumot topildi!</b>\n\n"
-                f"🎬 <b>Nomi:</b> {title_display}\n"
-                f"🇺🇿 <b>O'zbekcha:</b> {default_uz}\n"
-                f"📅 <b>Yili:</b> {anilist_data.get('year')} | 🎭 <b>Janr:</b> {anilist_data.get('genres')}\n"
-                f"🎞 <b>Qismlar:</b> {anilist_data.get('episodes')} ta | 🏢 <b>Studiya:</b> {anilist_data.get('studio')}\n"
+                f"🎬 <b>Nomi:</b> {safe_title}\n"
+                f"🇺🇿 <b>O'zbekcha:</b> {safe_uz}\n"
+                f"📅 <b>Yili:</b> {anilist_data.get('year')} | 🎭 <b>Janr:</b> {safe_genres}\n"
+                f"🎞 <b>Qismlar:</b> {anilist_data.get('episodes')} ta | 🏢 <b>Studiya:</b> {safe_studio}\n"
                 f"🔑 <b>Tavsiya etilgan kod:</b> <code>#{next_code}</code>\n\n"
                 f"⚡️ <i>1-klikda saqlash uchun «⚡️ Saqlash va qism yuklash» tugmasini bosing yoki nomni o'zgartirish uchun yangi nom yozing:</i>"
             )
@@ -373,19 +379,21 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
                 code=next_code
             )
             await state.set_state(AddAnimeStates.waiting_for_title_uz)
+            safe_title_input = html.escape(title, quote=False)
+            not_found_msg = (
+                f"ℹ️ <b>AniList'da topilmadi.</b>\n\n"
+                f"Animening o'zbekcha nomini tasdiqlash uchun «.» nuqta yuboring yoki yangi nom kiriting:\n"
+                f"<i>(Kiritilgan nom: {safe_title_input})</i>"
+            )
             try:
                 await status_msg.edit_text(
-                    f"ℹ️ <b>AniList'da topilmadi.</b>\n\n"
-                    f"Animening o'zbekcha nomini tasdiqlash uchun «.» nuqta yuboring yoki yangi nom kiriting:\n"
-                    f"<i>(Kiritilgan nom: {title})</i>",
+                    not_found_msg,
                     reply_markup=get_cancel_reply(),
                     parse_mode="HTML"
                 )
             except Exception:
                 await message.answer(
-                    f"ℹ️ <b>AniList'da topilmadi.</b>\n\n"
-                    f"Animening o'zbekcha nomini tasdiqlash uchun «.» nuqta yuboring yoki yangi nom kiriting:\n"
-                    f"<i>(Kiritilgan nom: {title})</i>",
+                    not_found_msg,
                     reply_markup=get_cancel_reply(),
                     parse_mode="HTML"
                 )
@@ -512,12 +520,15 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
         status=data.get("status", "Tugallangan")
     )
 
+    safe_title_uz = html.escape(anime.title_uz, quote=False)
+    safe_genres = html.escape(anime.genres or "Anime", quote=False)
+
     confirm_text = (
         f"🎉 <b>Anime muvaffaqiyatli saqlandi!</b>\n\n"
-        f"🎬 <b>Nomi:</b> {anime.title_uz}\n"
+        f"🎬 <b>Nomi:</b> {safe_title_uz}\n"
         f"🔑 <b>Kodi:</b> <code>{anime.code}</code>\n"
         f"📅 <b>Yili:</b> {anime.year}\n"
-        f"🎭 <b>Janr:</b> {anime.genres}\n\n"
+        f"🎭 <b>Janr:</b> {safe_genres}\n\n"
         f"📌 <i>Kanal katalogi avtomatik jimgina yangilandi!</i>\n"
         f"Endi darhol qismlarni yuklash uchun quyidagi tugmani bosing:"
     )
@@ -637,8 +648,9 @@ async def enter_batch_upload_mode(message: Message, anime: Anime, state: FSMCont
         count_uploaded=0
     )
     await state.set_state(BatchUploadStates.uploading_batch_episodes)
+    safe_title = html.escape(anime.title_uz, quote=False)
     await message.answer(
-        f"⚡️ <b>{anime.title_uz}</b> [#{anime.code}] uchun <b>Ommaviy Yuklash</b> faollashdi!\n"
+        f"⚡️ <b>{safe_title}</b> [#{anime.code}] uchun <b>Ommaviy Yuklash</b> faollashdi!\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📊 Hozir bazada: <b>{current_eps} ta qism</b> mavjud.\n\n"
         f"🚀 <b>Ko'rsatma:</b>\n"
@@ -712,9 +724,10 @@ async def finish_batch_upload(message: Message, state: FSMContext) -> None:
         except Exception:
             pass
 
+        safe_finish_title = html.escape(str(title), quote=False)
         await message.answer(
             f"🎉 <b>Ommaviy yuklash muvaffaqiyatli yakunlandi!</b>\n\n"
-            f"🎬 Anime: <b>{title}</b>\n"
+            f"🎬 Anime: <b>{safe_finish_title}</b>\n"
             f"🎞 Yuklangan yangi qismlar: <b>{uploaded} ta</b>\n\n"
             f"📌 <i>Kanal katalogidagi qismlar soni avtomatik yangilandi!</i>",
             reply_markup=get_admin_menu(),
@@ -761,9 +774,10 @@ async def handle_callback_add_ep(callback: CallbackQuery, state: FSMContext) -> 
     await state.update_data(anime_id=anime.id, anime_code=anime.code, anime_title=anime.title_uz)
 
     next_ep = len(anime.episodes) + 1
+    safe_title = html.escape(anime.title_uz, quote=False)
     if callback.message:
         await callback.message.answer(
-            f"🎬 <b>{anime.title_uz}</b> [#{anime.code}]\n\n"
+            f"🎬 <b>{safe_title}</b> [#{anime.code}]\n\n"
             f"Nechanchi qismni yuklamoqchisiz?\n"
             f"<i>Keyingi kutilayotgan qism: <b>{next_ep}</b></i>\n"
             f"(Shu qism bo'lsa «.» nuqta yuboring yoki boshqa raqam yozing)",
@@ -787,8 +801,9 @@ async def process_ep_anime_code(message: Message, state: FSMContext) -> None:
     next_ep = len(anime.episodes) + 1
     await state.update_data(anime_id=anime.id, anime_code=anime.code, anime_title=anime.title_uz)
     await state.set_state(AddEpisodeStates.waiting_for_ep_number)
+    safe_title = html.escape(anime.title_uz, quote=False)
     await message.answer(
-        f"🎬 <b>{anime.title_uz}</b> tanlandi.\n\n"
+        f"🎬 <b>{safe_title}</b> tanlandi.\n\n"
         f"Nechanchi qismni yuklamoqchisiz?\n"
         f"<i>Kutilayotgan qism: <b>{next_ep}</b></i> (Shunday qoldirish uchun «.» yuboring)",
         reply_markup=get_cancel_reply(),
@@ -814,8 +829,9 @@ async def process_ep_number(message: Message, state: FSMContext) -> None:
 
     await state.update_data(episode_number=ep_num)
     await state.set_state(AddEpisodeStates.waiting_for_video)
+    safe_title = html.escape(str(data.get('anime_title', 'Anime')), quote=False)
     await message.answer(
-        f"🎞 <b>{data['anime_title']}</b> — <b>{ep_num}-qism</b> uchun videofaylni yuboring:\n\n"
+        f"🎞 <b>{safe_title}</b> — <b>{ep_num}-qism</b> uchun videofaylni yuboring:\n\n"
         f"<i>(Telegram orqali videoni shunchaki xabar sifatida yuboring)</i>",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
@@ -854,8 +870,9 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
     except Exception:
         pass
 
+    safe_saved_title = html.escape(str(data.get('anime_title', 'Anime')), quote=False)
     await message.answer(
-        f"✅ <b>{data['anime_title']}</b> animening <b>{ep_num}-qismi</b> muvaffaqiyatli saqlandi!\n"
+        f"✅ <b>{safe_saved_title}</b> animening <b>{ep_num}-qismi</b> muvaffaqiyatli saqlandi!\n"
         f"Foydalanuvchilar endi ushbu qismni bot orqali ko'ra olishadi.",
         reply_markup=get_admin_menu(),
         parse_mode="HTML"
@@ -981,8 +998,9 @@ async def handle_confirm_post(callback: CallbackQuery) -> None:
 
         await callback.answer("✅ Post muvaffaqiyatli kanalga chiqarildi!", show_alert=True)
         if callback.message:
+            safe_post_title = html.escape(anime.title_uz, quote=False)
             await callback.message.edit_text(
-                f"✅ <b>#{anime.code} — {anime.title_uz}</b> posti {config.CHANNEL_USERNAME} kanaliga chiqarildi!",
+                f"✅ <b>#{anime.code} — {safe_post_title}</b> posti {config.CHANNEL_USERNAME} kanaliga chiqarildi!",
                 parse_mode="HTML"
             )
     except Exception as e:

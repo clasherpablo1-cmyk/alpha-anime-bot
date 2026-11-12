@@ -1,3 +1,4 @@
+import html
 import io
 import re
 import asyncio
@@ -59,8 +60,9 @@ async def handle_start(message: Message, command: CommandObject, state: FSMConte
             await send_anime_card(message, anime, is_admin)
             return
 
+    safe_user_name = html.escape(user.full_name or "Foydalanuvchi", quote=False)
     welcome_text = (
-        f"👋 Assalomu alaykum, <b>{user.full_name}</b>!\n\n"
+        f"👋 Assalomu alaykum, <b>{safe_user_name}</b>!\n\n"
         f"🎌 <b>«Uzbekcha animelar»</b> rasmiy botiga xush kelibsiz!\n\n"
         f"Bu yerda siz sara va yangi animelarni o'zbek tilida yuqori sifatda (HD) tomosha qilishingiz mumkin.\n\n"
         f"🔢 <i>Anime kodini yozib yuboring (masalan: <code>1</code>) yoki quyidagi menyudan foydalaning:</i>"
@@ -82,8 +84,9 @@ async def handle_claim_admin(message: Message, command: CommandObject) -> None:
     password = command.args.strip() if command.args else ""
     if password == config.ADMIN_SECRET_KEY:
         await db.set_user_admin(user.id, is_admin=True)
+        safe_admin_name = html.escape(user.full_name or "Foydalanuvchi", quote=False)
         await message.answer(
-            f"🎉 Tabriklaymiz, <b>{user.full_name}</b>!\n"
+            f"🎉 Tabriklaymiz, <b>{safe_admin_name}</b>!\n"
             f"Sizga muvaffaqiyatli <b>Admin</b> huquqi berildi.\n"
             f"Endi /admin buyrug'i orqali boshqaruv paneliga kirishingiz mumkin.",
             reply_markup=get_main_menu(is_admin=True),
@@ -246,9 +249,10 @@ async def process_search_query(message: Message, state: FSMContext) -> None:
     is_admin = await db.is_admin(message.from_user.id) if message.from_user else False
 
     animes = await db.search_animes(query, limit=10)
+    safe_query = html.escape(query, quote=False)
     if not animes:
         await message.answer(
-            f"🔍 «<b>{query}</b>» nomli anime hali botimizga yuklanmagan.\n\n"
+            f"🔍 «<b>{safe_query}</b>» nomli anime hali botimizga yuklanmagan.\n\n"
             f"💡 <i>Mavjud barcha animelarni ko'rish uchun «🗂 Katalog» tugmasidan foydalaning yoki anime kodi (masalan: <code>1</code>) orqali qidiring.</i>",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
@@ -257,7 +261,7 @@ async def process_search_query(message: Message, state: FSMContext) -> None:
 
     kb = get_anime_search_keyboard(animes)
     await message.answer(
-        f"🔍 «<b>{query}</b>» bo'yicha topilgan animelar:",
+        f"🔍 «<b>{safe_query}</b>» bo'yicha topilgan animelar:",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -331,12 +335,17 @@ def format_anime_search_result(result: AnimeSearchResult, is_second: bool = Fals
     else:
         lines.append("🔎 <b>Rasm biroz noaniq, lekin eng yaqin anime topildi:</b>\n")
 
-    lines.append(f"🇺🇿 <b>O'zbekcha:</b> {result.title_uzbek}")
-    lines.append(f"🇬🇧 <b>Inglizcha:</b> {result.title_english}")
+    safe_uzbek = html.escape(result.title_uzbek or "", quote=False)
+    safe_english = html.escape(result.title_english or "", quote=False)
+    lines.append(f"🇺🇿 <b>O'zbekcha:</b> {safe_uzbek}")
+    lines.append(f"🇬🇧 <b>Inglizcha:</b> {safe_english}")
     if result.title_japanese and result.title_romaji and result.title_japanese != result.title_romaji:
-        lines.append(f"🇯🇵 <b>Yaponcha:</b> {result.title_japanese} ({result.title_romaji})")
+        safe_jap = html.escape(result.title_japanese, quote=False)
+        safe_rom = html.escape(result.title_romaji, quote=False)
+        lines.append(f"🇯🇵 <b>Yaponcha:</b> {safe_jap} ({safe_rom})")
     elif result.title_japanese or result.title_romaji:
-        lines.append(f"🇯🇵 <b>Yaponcha:</b> {result.title_japanese or result.title_romaji}")
+        safe_jap = html.escape(result.title_japanese or result.title_romaji, quote=False)
+        lines.append(f"🇯🇵 <b>Yaponcha:</b> {safe_jap}")
 
     if result.similarity_percent > 0:
         lines.append(f"\n📊 <b>Aniqlik darajasi:</b> {result.similarity_percent}%")
@@ -345,9 +354,11 @@ def format_anime_search_result(result: AnimeSearchResult, is_second: bool = Fals
     if result.timestamp:
         lines.append(f"⏱ <b>Kadr vaqti:</b> {result.timestamp}")
     if result.genres_uz:
-        lines.append(f"🎭 <b>Janrlar:</b> {result.genres_uz}")
+        safe_genres = html.escape(result.genres_uz, quote=False)
+        lines.append(f"🎭 <b>Janrlar:</b> {safe_genres}")
     if result.character_name:
-        lines.append(f"👤 <b>Qahramon:</b> {result.character_name}")
+        safe_char = html.escape(result.character_name, quote=False)
+        lines.append(f"👤 <b>Qahramon:</b> {safe_char}")
 
     buttons = []
     if result.db_anime:

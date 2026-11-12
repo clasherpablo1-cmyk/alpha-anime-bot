@@ -38,7 +38,8 @@ class Anime(Base):
         "Episode",
         back_populates="anime",
         cascade="all, delete-orphan",
-        order_by="Episode.episode_number"
+        order_by="Episode.episode_number",
+        lazy="selectin"
     )
 
 

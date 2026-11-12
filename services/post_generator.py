@@ -1,3 +1,4 @@
+import html
 import logging
 from typing import Optional, Tuple
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -10,18 +11,20 @@ logger = logging.getLogger(__name__)
 
 def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
     """Kanalga chiqarish uchun chiroyli bezatilgan post matni va inline tugmalar"""
-    title_display = anime.title_uz
+    title_raw = anime.title_uz
     if anime.title_romaji and anime.title_romaji.lower() != anime.title_uz.lower():
-        title_display += f" / {anime.title_romaji}"
+        title_raw += f" / {anime.title_romaji}"
+    title_display = html.escape(title_raw, quote=False)
 
     year_str = f"{anime.year}-yil" if anime.year else "Noma'lum"
-    genres_str = anime.genres or "Sarguzasht, Fantastika"
-    status_str = anime.status or "Tugallangan"
+    genres_str = html.escape(anime.genres or "Sarguzasht, Fantastika", quote=False)
+    status_str = html.escape(anime.status or "Tugallangan", quote=False)
     total_episodes_str = f"{anime.total_episodes} ta qism" if anime.total_episodes else "Noma'lum"
-    
-    desc_str = anime.description or "Ajoyib qiziqarli anime sarguzashtlari!"
-    if len(desc_str) > 300:
-        desc_str = desc_str[:300] + "..."
+
+    desc_raw = anime.description or "Ajoyib qiziqarli anime sarguzashtlari!"
+    if len(desc_raw) > 280:
+        desc_raw = desc_raw[:280] + "..."
+    desc_str = html.escape(desc_raw, quote=False)
 
     bot_url = f"https://t.me/{config.BOT_USERNAME}?start={anime.code}"
 
@@ -64,11 +67,13 @@ def format_episode_caption(anime_title: str, ep_number: int, quality: str = "720
     """O'zbek yoshlariga mos olovli, brendlangan video izohi"""
     clean_tag = "".join(c for c in anime_title.lower() if c.isalnum())
     tag = f"#{clean_tag}" if clean_tag else "#anime"
+    safe_title = html.escape(anime_title, quote=False)
+    safe_quality = html.escape(quality, quote=False)
 
     text = (
-        f"🎬 <b>{anime_title}</b> — <b>{ep_number}-qism</b>\n"
+        f"🎬 <b>{safe_title}</b> — <b>{ep_number}-qism</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"💾 Sifati: <b>{quality} HD</b>\n"
+        f"💾 Sifati: <b>{safe_quality} HD</b>\n"
         f"🇺🇿 Tili: <b>O'zbekcha tarjima</b>\n"
         f"📢 Bizning kanal: {config.CHANNEL_USERNAME}\n"
         f"🤖 Bot: @{config.BOT_USERNAME}\n"
@@ -80,31 +85,49 @@ def format_episode_caption(anime_title: str, ep_number: int, quality: str = "720
 
 
 def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
-    """Kanalga qadab qo'yish uchun barcha animelar matnli mundarijasi (ko'k giperhavolalar bilan)"""
-    text = (
+    """Kanalga qadab qo'yish uchun barcha animelar matnli mundarijasi (ko'k giperhavolalar bilan, 4000 belgi xavfsiz)"""
+    header = (
         f"🎌 <b>«UZBEKCHA ANIMELAR» MUNDARIJASI (KATALOG)</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"<i>Animeni 1 ta tugma bilan yuklab olish yoki tomosha qilish uchun uning <b>ko'k nomini</b> bosing:</i>\n\n"
     )
 
-    for anime in animes:
-        bot_url = f"https://t.me/{config.BOT_USERNAME}?start={anime.code}"
-        eps_count = len(anime.episodes)
-        total_str = f"{eps_count}/{anime.total_episodes}" if anime.total_episodes else f"{eps_count}"
-        
-        text += (
-            f"🔹 <a href=\"{bot_url}\"><b>{anime.title_uz}</b></a> — "
-            f"<i>{total_str} ta qism</i> [#{anime.code}]\n"
-        )
-
-    text += (
+    footer = (
         f"\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🤖 <b>Bizning rasmiy bot:</b> @{config.BOT_USERNAME}\n"
         f"📢 <b>Kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
         f"<i>Ro'yxat yangi animelar qo'shilishi bilan avtomatik yangilanib boradi!</i>"
     )
 
-    # 100 lab ortiqcha tugmalar o'rniga faqat 1 ta toza, universal tugma!
+    # Maksimal hajm chegarasi Telegramda 4096 belgi
+    available_chars = 3900 - len(header) - len(footer)
+    lines = []
+    overflow_count = 0
+
+    for idx, anime in enumerate(animes):
+        bot_url = f"https://t.me/{config.BOT_USERNAME}?start={anime.code}"
+        try:
+            eps_count = len(anime.episodes) if anime.episodes is not None else 0
+        except Exception:
+            eps_count = 0
+        total_str = f"{eps_count}/{anime.total_episodes}" if anime.total_episodes else f"{eps_count}"
+        safe_title = html.escape(anime.title_uz, quote=False)
+
+        line = (
+            f"🔹 <a href=\"{bot_url}\"><b>{safe_title}</b></a> — "
+            f"<i>{total_str} ta qism</i> [#{anime.code}]\n"
+        )
+        if len("".join(lines)) + len(line) < available_chars:
+            lines.append(line)
+        else:
+            overflow_count = len(animes) - idx
+            break
+
+    if overflow_count > 0:
+        lines.append(f"\n<i>...va yana {overflow_count} ta sara anime botimizda!</i>\n")
+
+    text = header + "".join(lines) + footer
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -120,15 +143,25 @@ def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
 
 
 def format_anime_card(anime: Anime) -> str:
-    """Bot ichida foydalanuvchiga anime haqida to'liq ma'lumot chiqarish"""
-    title_display = anime.title_uz
-    if anime.title_romaji:
-        title_display += f" ({anime.title_romaji})"
+    """Bot ichida foydalanuvchiga anime haqida to'liq ma'lumot chiqarish (1024 belgi caption limitiga mos)"""
+    title_raw = anime.title_uz
+    if anime.title_romaji and anime.title_romaji.lower() != anime.title_uz.lower():
+        title_raw += f" ({anime.title_romaji})"
+    title_display = html.escape(title_raw, quote=False)
 
     year_str = f"{anime.year}" if anime.year else "Noma'lum"
-    genres_str = anime.genres or "Anime"
-    status_str = anime.status or "Tugallangan"
-    total_episodes_str = f"{len(anime.episodes)} / {anime.total_episodes}"
+    genres_str = html.escape(anime.genres or "Anime", quote=False)
+    status_str = html.escape(anime.status or "Tugallangan", quote=False)
+    try:
+        loaded_eps_count = len(anime.episodes) if anime.episodes is not None else 0
+    except Exception:
+        loaded_eps_count = 0
+    total_episodes_str = f"{loaded_eps_count} / {anime.total_episodes}"
+
+    desc_raw = anime.description or "Tavsif berilmagan."
+    if len(desc_raw) > 300:
+        desc_raw = desc_raw[:300] + "..."
+    desc_str = html.escape(desc_raw, quote=False)
 
     text = (
         f"🎬 <b>{title_display}</b>\n"
@@ -140,7 +173,7 @@ def format_anime_card(anime: Anime) -> str:
         f"🎞 <b>Yuklangan qismlar:</b> {total_episodes_str}\n"
         f"👁 <b>Ko'rishlar soni:</b> {anime.views_count}\n"
         f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"📖 <b>Mazmuni:</b>\n<i>{anime.description or 'Tavsif berilmagan.'}</i>\n\n"
+        f"📖 <b>Mazmuni:</b>\n<i>{desc_str}</i>\n\n"
         f"👇 <i>Qismni tanlang yoki barcha qismlarni bir bosishda yuklab oling:</i>"
     )
     return text

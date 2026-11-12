@@ -14,7 +14,7 @@ if sys.platform.startswith("win"):
 
 from database.db import DatabaseManager
 from services.anilist import anilist_service
-from services.post_generator import format_channel_post, format_anime_card
+from services.post_generator import format_channel_post, format_anime_card, format_channel_catalog, format_episode_caption
 
 
 async def run_tests():
@@ -115,6 +115,39 @@ async def run_tests():
         assert "UZBEKCHA ANIMELAR (ALPHA)" in caption
         assert "@acacafagag" in backup_svc.channel_id or "-1003957205922" in backup_svc.channel_id
         print(f"   ✅ Backup ZIP to'liq testdan o'tdi: {zip_filename} ({len(zip_bytes)} bayt).")
+
+        # 8. HTML Escaping va Caption Overflow xavfsizlik testi
+        print("8️⃣ HTML Entity Escaping va Telegram Caption limitlari testi...")
+        special_anime = await test_db.add_anime(
+            code=999,
+            title_uz="Spice & Wolf <Remake>",
+            title_romaji="Ookami to Koushinryou & Merchant",
+            year=2024,
+            genres="Drama & Fantasy <Magic>",
+            description="A" * 500 + " <script>alert(1)</script> & special info",
+            poster_file_id="https://example.com/poster2.jpg",
+            total_episodes=24,
+            status="Ongoing"
+        )
+        special_post, _ = format_channel_post(special_anime)
+        assert "&amp;" in special_post
+        assert "&lt;Remake&gt;" in special_post
+        assert "<script>" not in special_post
+        assert len(special_post) <= 1024
+
+        card_text = format_anime_card(special_anime)
+        assert "&amp;" in card_text
+        assert "&lt;Remake&gt;" in card_text
+        assert len(card_text) <= 1024
+
+        ep_caption = format_episode_caption(special_anime.title_uz, 1)
+        assert "&amp;" in ep_caption
+        assert "&lt;Remake&gt;" in ep_caption
+
+        catalog_text, _ = format_channel_catalog([special_anime] * 50)
+        assert len(catalog_text) <= 4096
+        assert "&amp;" in catalog_text
+        print("   ✅ HTML Entity Escaping va Caption limitlari 100% xavfsiz!")
 
         print("\n🎉 Barcha testlar 100% muvaffaqiyatli o'tdi!")
     finally:
