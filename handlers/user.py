@@ -389,6 +389,21 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
         # Qidiruv servisini ishga tushirish
         result = await anime_image_search_service.search_by_image(image_bytes, is_second_attempt=is_second)
 
+        # 0-holat: 18+ yoki nojo'ya kontent filtrlandi
+        if result.status == "error" and result.raw_error == "18_plus_filtered":
+            await state.clear()
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+            await message.answer(
+                "🚫 <b>Kechirasiz, 18+ yoki nojo'ya kontentlar ushbu botda qat'iyan taqiqlangan.</b>\n"
+                "Iltimos, faqat odatiy anime kadrlarini yuboring.",
+                reply_markup=get_main_menu(is_admin=is_admin),
+                parse_mode="HTML"
+            )
+            return
+
         # 1-holat: Anime yuqori yoki o'rtacha ishonch bilan topildi
         if result.status in ("high_confidence", "medium_confidence"):
             caption, kb = format_anime_search_result(result, is_second=is_second)
