@@ -13,7 +13,6 @@ from config import config
 from database.db import db
 from database.models import Anime
 from services.post_generator import format_anime_card, format_episode_caption
-from services.anilist import anilist_service
 from services.image_search import anime_image_search_service, AnimeSearchResult
 from keyboards.reply import get_main_menu, get_cancel_reply
 from keyboards.inline import (
@@ -248,27 +247,9 @@ async def process_search_query(message: Message, state: FSMContext) -> None:
 
     animes = await db.search_animes(query, limit=10)
     if not animes:
-        # Agar lokal bazada bo'lmasa, AniList orqali dunyo bazasidan qidiramiz
-        anilist_info = await anilist_service.search_anime(query)
-        if anilist_info:
-            found_title = anilist_info.get("title_romaji") or anilist_info.get("title_english")
-            year_str = f"({anilist_info.get('year')})" if anilist_info.get("year") else ""
-            await message.answer(
-                f"ℹ️ <b>Anime topildi, lekin hali botga yuklanmagan:</b>\n\n"
-                f"🎬 <b>{found_title}</b> {year_str}\n"
-                f"🎭 <b>Janr:</b> {anilist_info.get('genres')}\n"
-                f"🎞 <b>Qismlar soni:</b> {anilist_info.get('episodes')} ta\n"
-                f"📖 <i>{anilist_info.get('description')}</i>\n\n"
-                f"⚠️ <i>Ushbu animening qismlari tez orada kanalimizga va botga joylanadi!</i>\n"
-                f"📢 Bizni kuzatib boring: {config.CHANNEL_USERNAME}",
-                reply_markup=get_main_menu(is_admin=is_admin),
-                parse_mode="HTML"
-            )
-            return
-
         await message.answer(
-            f"🔍 «<b>{query}</b>» bo'yicha hech qanday anime topilmadi.\n"
-            f"Nomini to'g'ri yozganingizga ishonch hosil qiling yoki kod orqali qidiring.",
+            f"🔍 «<b>{query}</b>» nomli anime hali botimizga yuklanmagan.\n\n"
+            f"💡 <i>Mavjud barcha animelarni ko'rish uchun «🗂 Katalog» tugmasidan foydalaning yoki anime kodi (masalan: <code>1</code>) orqali qidiring.</i>",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
         )

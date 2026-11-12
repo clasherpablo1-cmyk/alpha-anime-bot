@@ -73,7 +73,7 @@ class AniListService:
 
     QUERY_SEARCH = """
     query ($search: String) {
-      Media(search: $search, type: ANIME) {
+      Media(search: $search, type: ANIME, isAdult: false) {
         id
         title {
           romaji
@@ -86,6 +86,7 @@ class AniListService:
         episodes
         status
         genres
+        isAdult
         averageScore
         description(asHtml: false)
         coverImage {
@@ -167,6 +168,10 @@ class AniListService:
                         media = await self._query_anilist(session, translated_en)
 
                 if not media:
+                    return None
+
+                # 18+ / Kattalar uchun mo'ljallangan va Hentai kontentlarni qat'iy taqiqlash
+                if media.get("isAdult") is True or "Hentai" in media.get("genres", []):
                     return None
 
                 studios_nodes = media.get("studios", {}).get("nodes", [])
