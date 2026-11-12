@@ -182,18 +182,18 @@ async def main() -> None:
     from aiogram.exceptions import TelegramConflictError
     from aiogram.client.session.aiohttp import AiohttpSession
 
+    # Eski to'planib qolgan webhook/xabarlarni tozalash (drop pending updates)
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+    except Exception as dw_err:
+        logger.debug(f"delete_webhook ogohlantirish: {dw_err}")
+
     try:
         while True:
             try:
-                # Agar sessiya avval yopilgan bo'lsa, yangi sessiya ochish
-                if bot.session and bot.session.closed:
+                # Agar aiohttp sessiyasi kutilmaganda yopilgan bo'lsa
+                if bot.session and getattr(bot.session, "_session", None) and bot.session._session.closed:
                     bot.session = AiohttpSession()
-
-                # Eski to'planib qolgan xabarlarni tozalash (drop pending updates)
-                try:
-                    await bot.delete_webhook(drop_pending_updates=True)
-                except Exception as dw_err:
-                    logger.debug(f"delete_webhook ogohlantirish: {dw_err}")
 
                 logger.info("Telegram polling boshlanmoqda...")
                 notify_cloud_log("⚡️ Telegram polling boshlanmoqda...")
