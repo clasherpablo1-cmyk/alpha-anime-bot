@@ -1,5 +1,6 @@
 import html
 import re
+import io
 import asyncio
 import logging
 from typing import Optional
@@ -12,6 +13,8 @@ from aiogram.fsm.state import StatesGroup, State
 from config import config
 from database.db import db
 from database.models import Anime
+from services.anilist import anilist_service
+from services.backup_service import backup_service
 from services.post_generator import format_channel_post, format_channel_catalog, sync_channel_catalog
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_reply, get_batch_upload_menu
 from keyboards.inline import (
@@ -325,7 +328,7 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
         if anilist_data:
             romaji_title = anilist_data.get("title_romaji") or title
             eng_title = anilist_data.get("title_english") or ""
-            default_uz = title
+            default_uz = anilist_data.get("title_uz") or title
 
             await state.update_data(
                 anilist_data=anilist_data,
@@ -420,6 +423,10 @@ async def handle_admin_quick_save(callback: CallbackQuery, state: FSMContext) ->
 
     await callback.answer("⏳ Saqlanmoqda...")
     if callback.message:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
         await finalize_add_anime(callback.message, state)
 
 
@@ -508,9 +515,18 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     await state.clear()
 
+    code = data.get("code")
+    if not code:
+        code = await db.get_next_anime_code()
+    existing = await db.get_anime_by_code(code)
+    if existing:
+        code = await db.get_next_anime_code()
+
+    title_uz = data.get("title_uz") or data.get("title_romaji") or f"Anime #{code}"
+
     anime = await db.add_anime(
-        code=data["code"],
-        title_uz=data["title_uz"],
+        code=code,
+        title_uz=title_uz,
         title_romaji=data.get("title_romaji"),
         year=data.get("year"),
         genres=data.get("genres"),

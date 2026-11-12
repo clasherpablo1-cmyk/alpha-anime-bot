@@ -1,5 +1,6 @@
 import re
 import html
+import difflib
 import urllib.parse
 from typing import Optional, Dict, Any, List
 import aiohttp
@@ -144,9 +145,17 @@ class AniListService:
         try:
             from services.image_search import POPULAR_ANIME_UZ
             for romaji, uz in POPULAR_ANIME_UZ.items():
-                if lower_title == uz.lower() or lower_title in uz.lower() or uz.lower() in lower_title:
+                uz_lower = uz.lower()
+                if lower_title == uz_lower or lower_title in uz_lower or uz_lower in lower_title:
                     resolved_title = romaji
                     break
+            if not resolved_title:
+                import difflib
+                for romaji, uz in POPULAR_ANIME_UZ.items():
+                    main_uz = uz.split('(')[0].strip().lower()
+                    if len(lower_title) >= 4 and difflib.SequenceMatcher(None, lower_title, main_uz).ratio() >= 0.78:
+                        resolved_title = romaji
+                        break
         except Exception:
             pass
 
@@ -186,11 +195,29 @@ class AniListService:
                 clean_desc = self._clean_description(media.get("description"))
                 desc_uz = await translate_to_uzbek(clean_desc)
 
+                # O'zbekcha nomni aniqlash
+                uz_canonical = None
+                try:
+                    from services.image_search import POPULAR_ANIME_UZ
+                    r_title = (media.get("title", {}).get("romaji") or "").lower()
+                    e_title = (media.get("title", {}).get("english") or "").lower()
+                    for candidate_key in [r_title, e_title, clean_title.lower()]:
+                        if candidate_key in POPULAR_ANIME_UZ:
+                            uz_canonical = POPULAR_ANIME_UZ[candidate_key].split('(')[0].strip()
+                            break
+                    if not uz_canonical and resolved_title and resolved_title.lower() in POPULAR_ANIME_UZ:
+                        uz_canonical = POPULAR_ANIME_UZ[resolved_title.lower()].split('(')[0].strip()
+                except Exception:
+                    pass
+
+                title_uz_final = uz_canonical or clean_title.title()
+
                 return {
                     "id": media.get("id"),
                     "title_romaji": media.get("title", {}).get("romaji") or media.get("title", {}).get("english") or clean_title,
                     "title_english": media.get("title", {}).get("english"),
                     "title_native": media.get("title", {}).get("native"),
+                    "title_uz": title_uz_final,
                     "year": media.get("startDate", {}).get("year"),
                     "episodes": media.get("episodes") or 12,
                     "status": "Tugallangan" if media.get("status") == "FINISHED" else "Ongoing",
