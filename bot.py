@@ -1,24 +1,6 @@
+import asyncio
+import logging
 import sys
-import os
-import urllib.request
-import urllib.parse
-import traceback
-
-def notify_cloud_early(text: str) -> None:
-    try:
-        token = os.environ.get("BOT_TOKEN", "8623305387:AAGAuI0_SfT1tVODQDpY6xz1NOw_y0AIirA")
-        chat_id = os.environ.get("BACKUP_CHANNEL_ID", "-1003957205922")
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = urllib.parse.urlencode({
-            "chat_id": chat_id,
-            "text": f"📡 [Render Early Boot]\n{text}"[:4000]
-        }).encode("utf-8")
-        req = urllib.request.Request(url, data=payload, headers={"User-Agent": "RenderBoot/1.0"})
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
-
-notify_cloud_early(f"🚀 bot.py boshlandi!\nPython: {sys.version.split()[0]}\nOS: {sys.platform}\nPORT: {os.environ.get('PORT', 'unset')}")
 
 if sys.platform.startswith("win"):
     try:
@@ -27,30 +9,22 @@ if sys.platform.startswith("win"):
     except Exception:
         pass
 
-try:
-    import asyncio
-    import logging
-    from aiogram import Bot, Dispatcher
-    from aiogram.enums import ParseMode
-    from aiogram.client.default import DefaultBotProperties
-    from aiogram.fsm.storage.memory import MemoryStorage
-    from aiogram.types import BotCommand
+from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
+from aiogram.exceptions import TelegramConflictError
 
-    from config import config
-    from database.db import db
-    from middlewares.subscription import SubscriptionCheckMiddleware
-    from handlers.admin import admin_router
-    from handlers.user import user_router
+from config import config
+from database.db import db
+from middlewares.subscription import SubscriptionCheckMiddleware
+from handlers.admin import admin_router
+from handlers.user import user_router
 
-    from services.web_server import start_web_server
-    from services.backup_service import backup_service
-    notify_cloud_early("✅ Barcha modullar muvaffaqiyatli import qilindi!")
-except Exception as imp_err:
-    notify_cloud_early(f"❌ IMPORT XATOSI:\n{traceback.format_exc()}")
-    raise
+from services.web_server import start_web_server
+from services.backup_service import backup_service
 
-def notify_cloud_log(text: str) -> None:
-    notify_cloud_early(text)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -156,17 +130,13 @@ async def main() -> None:
     if config.WEB_SERVER_ENABLED:
         try:
             web_runner = await start_web_server(host=config.HOST, port=config.PORT)
-            notify_cloud_log(f"✅ Web server ko'tarildi: {config.HOST}:{config.PORT}")
         except Exception as e:
-            notify_cloud_log(f"❌ Web server xatosi: {e}")
             logger.error(f"Veb-serverni ishga tushirishda xatolik: {e}")
 
-    # 3. Dastlabki ma'lumotlar bazasi va zaxira initsializatsiyasi (1 marta ishlaydi)
+    # 3. Dastlabki ma'lumotlar bazasi va zaxira initsializatsiyasi
     try:
         await on_startup(bot)
-        notify_cloud_log("✅ on_startup yakunlandi (DB & Cache tayyor).")
     except Exception as e:
-        notify_cloud_log(f"❌ Startup initsializatsiyasida ogohlantirish: {e}")
         logger.error(f"Startup initsializatsiyasida ogohlantirish: {e}")
 
     # 4. Middlewares
@@ -178,25 +148,17 @@ async def main() -> None:
     dp.include_router(admin_router)
     dp.include_router(user_router)
 
-    # 6. Pollingni avto-tiklanish (Auto-Reconnect) va Render Blue-Green Conflict Guard bilan ishga tushirish
-    from aiogram.exceptions import TelegramConflictError
-    from aiogram.client.session.aiohttp import AiohttpSession
-
-    # Eski to'planib qolgan webhook/xabarlarni tozalash (drop pending updates)
+    # 6. Eski to'planib qolgan webhook/xabarlarni tozalash (drop pending updates)
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as dw_err:
         logger.debug(f"delete_webhook ogohlantirish: {dw_err}")
 
+    # 7. Pollingni avto-tiklanish (Auto-Reconnect) bilan ishga tushirish
     try:
         while True:
             try:
-                # Agar aiohttp sessiyasi kutilmaganda yopilgan bo'lsa
-                if bot.session and getattr(bot.session, "_session", None) and bot.session._session.closed:
-                    bot.session = AiohttpSession()
-
                 logger.info("Telegram polling boshlanmoqda...")
-                notify_cloud_log("⚡️ Telegram polling boshlanmoqda...")
                 await dp.start_polling(
                     bot,
                     handle_signals=False,
@@ -204,15 +166,13 @@ async def main() -> None:
                 )
                 break
             except TelegramConflictError:
-                notify_cloud_log("⚠️ TelegramConflictError ushlandi! 5 soniyada qayta uriniladi...")
                 logger.warning("⚠️ Boshqa bot instansi hali faol (Render ko'chish jarayoni). 5 soniyadan so'ng qayta ulanadi...")
                 await asyncio.sleep(5)
             except (KeyboardInterrupt, SystemExit):
                 break
             except Exception as e:
-                notify_cloud_log(f"⚠️ Polling xatosi: {e}. 3s da qayta ulanadi...")
-                logger.error(f"Tarmoq uzilishi: {e}. 3 soniyadan so'ng qayta ulanadi...")
-                await asyncio.sleep(3)
+                logger.error(f"Polling uzilishi: {e}. 5 soniyadan so'ng qayta ulanadi...")
+                await asyncio.sleep(5)
     finally:
         if web_runner:
             try:
@@ -225,12 +185,6 @@ async def main() -> None:
 
 if __name__ == "__main__":
     try:
-        notify_cloud_log(f"🟢 Render Container ishga tushdi!\nPython: {sys.version}\nOS: {sys.platform}\nPORT: {config.PORT}")
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Bot to'xtatildi.")
-    except Exception as e:
-        err_msg = traceback.format_exc()
-        notify_cloud_log(f"❌ CRITICAL CRASH IN MAIN:\n{err_msg}")
-        logger.critical(f"Botda halokatli xatolik: {err_msg}")
-        sys.exit(1)
