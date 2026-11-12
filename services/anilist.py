@@ -73,7 +73,7 @@ class AniListService:
 
     QUERY_SEARCH = """
     query ($search: String) {
-      Media(search: $search, type: ANIME, isAdult: false) {
+      Media(search: $search, type: ANIME, isAdult: false, sort: [POPULARITY_DESC]) {
         id
         title {
           romaji
