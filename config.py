@@ -13,7 +13,38 @@ from pydantic import Field, field_validator
 # Shuningdek .env fayli orqali ham berish mumkin: EMOJI_SARLAVHA="5368324170671202286"
 # ==============================================================================
 
-CUSTOM_EMOJIS: Dict[str, str] = {
+
+class CustomEmojiDict(dict):
+    """Katta-kichik harflar va bo'shliqlarga sezgir bo'lmagan (case-insensitive) lug'at"""
+    def _normalize(self, key):
+        if isinstance(key, str):
+            return key.strip().lower()
+        return key
+
+    def __getitem__(self, key):
+        norm = self._normalize(key)
+        if norm in self:
+            return super().__getitem__(norm)
+        return super().__getitem__(key)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(self._normalize(key), value)
+
+    def __contains__(self, key):
+        return super().__contains__(self._normalize(key))
+
+    def get(self, key, default=None):
+        norm = self._normalize(key)
+        if norm in self:
+            return super().__getitem__(norm)
+        return default
+
+    def setdefault(self, key, default=None):
+        norm = self._normalize(key)
+        return super().setdefault(norm, default)
+
+
+CUSTOM_EMOJIS: Dict[str, str] = CustomEmojiDict({
     # 1. Post va xabar elementlari
     "sarlavha": "",       # Anime sarlavhasi (Fallback: 🍥)
     "reyting": "",        # Reyting (Fallback: ⚛️)
@@ -54,6 +85,18 @@ CUSTOM_EMOJIS: Dict[str, str] = {
     "til_en": "",         # Ingliz tili bayrog'i (Fallback: 🇬🇧)
     "til_jp": "",         # Yapon tili bayrog'i (Fallback: 🇯🇵)
     "maslahat": "",       # Maslahat stikeri (Fallback: 💡)
+    "taqiq": "",          # Taqiq / Kirish mumkin emas (Fallback: ⛔️)
+    "taqvim": "",         # Yil / Sana taqvimi (Fallback: 📅)
+    "studiya": "",        # Studiya (Fallback: 🏢)
+    "tahrir": "",         # Tahrirlash / Yozish (Fallback: ✏️)
+    "xabar": "",          # Xabar / Maktub (Fallback: ✉️)
+    "pochta": "",         # Pochta qutisi / Yuborildi (Fallback: 📬)
+    "ochirish": "",       # O'chirish / Savatcha (Fallback: 🗑)
+    "iltimos": "",        # Iltimos / Rajo (Fallback: 🙏)
+    "toj": "",            # Toj / Super admin (Fallback: 👑)
+    "raketa": "",         # Tezkor start / Raketa (Fallback: 🚀)
+    "info": "",           # Ma'lumot / Info (Fallback: ℹ️)
+    "qoshish": "",        # Qo'shish / Plus (Fallback: ➕)
 
     # 2. Tugmalar uchun maxsus emoji_id lar (Inline va Reply Keyboard icon_custom_emoji_id)
     "btn_download": "",   # Yuklab olish tugmasi (Fallback: 📥)
@@ -73,10 +116,10 @@ CUSTOM_EMOJIS: Dict[str, str] = {
     "btn_next": "",       # Keyingi sahifa tugmasi (Fallback: ➡️)
     "btn_save": "",       # Saqlash tugmasi (Fallback: ⚡️)
     "btn_edit": "",       # Tahrirlash tugmasi (Fallback: ✏️)
-}
+})
 
 # Standart zaxira emojilar (Fallback emojis)
-DEFAULT_FALLBACKS: Dict[str, str] = {
+DEFAULT_FALLBACKS: Dict[str, str] = CustomEmojiDict({
     "sarlavha": "🍥",
     "reyting": "⚛️",
     "qismlar": "🗃",
@@ -116,6 +159,18 @@ DEFAULT_FALLBACKS: Dict[str, str] = {
     "til_en": "🇬🇧",
     "til_jp": "🇯🇵",
     "maslahat": "💡",
+    "taqiq": "⛔️",
+    "taqvim": "📅",
+    "studiya": "🏢",
+    "tahrir": "✏️",
+    "xabar": "✉️",
+    "pochta": "📬",
+    "ochirish": "🗑",
+    "iltimos": "🙏",
+    "toj": "👑",
+    "raketa": "🚀",
+    "info": "ℹ️",
+    "qoshish": "➕",
 
     # Tugmalar
     "btn_download": "📥",
@@ -135,7 +190,7 @@ DEFAULT_FALLBACKS: Dict[str, str] = {
     "btn_next": "➡️",
     "btn_save": "⚡️",
     "btn_edit": "✏️",
-}
+})
 
 # Inglizcha va boshqa alternativ kalit so'zlar uchun aliaslar
 _EMOJI_ALIASES: Dict[str, str] = {
@@ -181,20 +236,28 @@ _EMOJI_ALIASES: Dict[str, str] = {
     "next": "btn_next",
     "save": "btn_save",
     "edit": "btn_edit",
+    "calendar": "taqvim",
+    "studio": "studiya",
+    "ban": "taqiq",
+    "delete": "ochirish",
+    "message": "xabar",
+    "mail": "pochta",
+    "rocket": "raketa",
+    "crown": "toj",
 }
 
 
 def is_valid_emoji_id(val: Optional[str]) -> bool:
-    """Emoji ID mavjud, bo'sh emas va placeholder emasligini tekshirish"""
+    """Emoji ID mavjud, bo'sh emas, raqamli va placeholder emasligini tekshirish"""
     if val is None or not isinstance(val, (str, int)):
         return False
     s = str(val).strip()
-    if not s or s in ("0", "None", "null", ""):
+    if not s or s.lower() in ("0", "none", "null", "", "false", "undefined"):
         return False
     upper = s.upper()
     if "YOUR_" in upper or "PLACEHOLDER" in upper or "EMOJI_ID" in upper:
         return False
-    return True
+    return s.isdigit() and int(s) > 0
 
 
 def get_custom_emoji(key: str, fallback: str = "") -> str:
@@ -205,12 +268,16 @@ def get_custom_emoji(key: str, fallback: str = "") -> str:
     Aks holda:
         fallback belgisi (yoki DEFAULT_FALLBACKS dagi standart belgi)
     """
-    resolved_key = _EMOJI_ALIASES.get(key, key)
-    fb = fallback if fallback else DEFAULT_FALLBACKS.get(resolved_key, DEFAULT_FALLBACKS.get(key, ""))
-    raw_val = CUSTOM_EMOJIS.get(resolved_key, CUSTOM_EMOJIS.get(key))
+    if not key:
+        return fallback or ""
+    clean_key = str(key).strip().lower()
+    resolved_key = _EMOJI_ALIASES.get(clean_key, clean_key)
+    fb = fallback if fallback else DEFAULT_FALLBACKS.get(resolved_key, DEFAULT_FALLBACKS.get(clean_key, ""))
+    raw_val = CUSTOM_EMOJIS.get(resolved_key, CUSTOM_EMOJIS.get(clean_key))
     if is_valid_emoji_id(raw_val):
         emoji_id = str(raw_val).strip()
-        return f'<tg-emoji emoji-id="{emoji_id}">{fb}</tg-emoji>'
+        safe_fb = fb if fb else "✨"
+        return f'<tg-emoji emoji-id="{emoji_id}">{safe_fb}</tg-emoji>'
     return fb
 
 
@@ -219,18 +286,25 @@ def get_emoji_id(key: str) -> Optional[str]:
     Tugmalar (icon_custom_emoji_id) uchun sof emoji_id ni olish.
     Agar kiritilmagan yoki placeholder bo'lsa, None qaytaradi.
     """
-    resolved_key = _EMOJI_ALIASES.get(key, key)
-    raw_val = CUSTOM_EMOJIS.get(resolved_key, CUSTOM_EMOJIS.get(key))
+    if not key:
+        return None
+    clean_key = str(key).strip().lower()
+    resolved_key = _EMOJI_ALIASES.get(clean_key, clean_key)
+    raw_val = CUSTOM_EMOJIS.get(resolved_key, CUSTOM_EMOJIS.get(clean_key))
     if is_valid_emoji_id(raw_val):
         return str(raw_val).strip()
     return None
 
 
-# Environment o'zgaruvchilari orqali yuklash (EMOJI_SARLAVHA="...")
-for _k in list(CUSTOM_EMOJIS.keys()):
-    _env_val = os.getenv(f"EMOJI_{_k.upper()}") or os.getenv(f"CUSTOM_EMOJI_{_k.upper()}")
-    if _env_val:
-        CUSTOM_EMOJIS[_k] = _env_val.strip()
+# Environment o'zgaruvchilari orqali yuklash (EMOJI_SARLAVHA="...", CUSTOM_EMOJI_SARLAVHA="...")
+for _env_name, _env_val in os.environ.items():
+    if not _env_val:
+        continue
+    for _prefix in ("EMOJI_", "CUSTOM_EMOJI_"):
+        if _env_name.startswith(_prefix):
+            _raw_k = _env_name[len(_prefix):].lower()
+            _resolved_k = _EMOJI_ALIASES.get(_raw_k, _raw_k)
+            CUSTOM_EMOJIS[_resolved_k] = _env_val.strip()
 
 
 class Settings(BaseSettings):

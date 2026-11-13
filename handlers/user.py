@@ -237,7 +237,7 @@ async def handle_recent_animes(message: Message) -> None:
 async def handle_channel_info(message: Message) -> None:
     await message.answer(
         f"{get_custom_emoji('kanal', '📢')} <b>Rasmiy Telegram kanalimiz:</b>\n\n"
-        f"👉 {config.CHANNEL_URL}\n\n"
+        f"{get_custom_emoji('kanal', '👉')} {config.CHANNEL_URL}\n\n"
         f"Eng so'nggi qismlar va yangiliklar aynan shu yerda chiqib boradi!",
         parse_mode="HTML"
     )
@@ -272,7 +272,7 @@ async def process_search_query(message: Message, state: FSMContext) -> None:
     if not animes:
         await message.answer(
             f"{get_custom_emoji('qidiruv', '🔍')} «<b>{safe_query}</b>» nomli anime hali botimizga yuklanmagan.\n\n"
-            f"💡 <i>Mavjud barcha animelarni ko'rish uchun «🗂 Katalog» tugmasidan foydalaning yoki anime kodi (masalan: <code>1</code>) orqali qidiring.</i>",
+            f"{get_custom_emoji('maslahat', '💡')} <i>Mavjud barcha animelarni ko'rish uchun «🗂 Katalog» tugmasidan foydalaning yoki anime kodi (masalan: <code>1</code>) orqali qidiring.</i>",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
         )
@@ -381,7 +381,7 @@ def format_anime_search_result(result: AnimeSearchResult, is_second: bool = Fals
 
     buttons = []
     if result.db_anime:
-        lines.append(f"\n🎬 <i>Ushbu anime bizning bot bazamizda mavjud! Quyidagi tugma orqali tomosha qilishingiz mumkin.</i>")
+        lines.append(f"\n{get_custom_emoji('video', '🎬')} <i>Ushbu anime bizning bot bazamizda mavjud! Quyidagi tugma orqali tomosha qilishingiz mumkin.</i>")
         buttons.append([InlineKeyboardButton(text="🎬 Botda tomosha qilish", callback_data=f"anime_code_{result.db_anime.code}", icon_custom_emoji_id=get_emoji_id("btn_play"))])
     elif result.anilist_url:
         buttons.append([InlineKeyboardButton(text="🌐 AniList da ko'rish", url=result.anilist_url, icon_custom_emoji_id=get_emoji_id("btn_channel"))])
@@ -484,7 +484,7 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
             await message.answer(
                 f"{get_custom_emoji('xato', '😔')} <b>Kechirasiz, 1-rasm orqali animeni aniq topib bo'lmadi...</b>\n\n"
                 f"Rasm biroz xira, juda kichik yoki noaniq bo'lishi mumkin.\n\n"
-                f"🙏 <b>Iltimos, aniqroq bo'lishi uchun 2-rasmni yuboring!</b>\n"
+                f"{get_custom_emoji('iltimos', '🙏')} <b>Iltimos, aniqroq bo'lishi uchun 2-rasmni yuboring!</b>\n"
                 f"<i>(Bosh qahramonning yuzi, yorug'roq kadr yoki yaqinroq lavha)</i>",
                 reply_markup=get_cancel_reply(),
                 parse_mode="HTML"
@@ -500,7 +500,7 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
 
             await message.answer(
                 f"{get_custom_emoji('xato', '😔')} <b>Afsuski, 2-rasm orqali ham animeni aniqlash imkoni bo'lmadi.</b>\n\n"
-                f"💡 <i>Maslahat: Animening nomini matn orqali qidirib ko'ring yoki sifatliroq boshqa kadr yuboring.</i>",
+                f"{get_custom_emoji('maslahat', '💡')} <i>Maslahat: Animening nomini matn orqali qidirib ko'ring yoki sifatliroq boshqa kadr yuboring.</i>",
                 reply_markup=get_main_menu(is_admin=is_admin),
                 parse_mode="HTML"
             )
