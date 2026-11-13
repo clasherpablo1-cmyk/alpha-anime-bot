@@ -589,12 +589,6 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
         ]
     )
 
-    # Kanal katalogini avtomat yangilash
-    try:
-        await sync_channel_catalog(message.bot)
-    except Exception:
-        pass
-
     # Telegram Cloud zaxiralash (@acacafagag)
     try:
         from services.backup_service import backup_service
@@ -749,12 +743,6 @@ async def finish_batch_upload(message: Message, state: FSMContext) -> None:
     await state.clear()
 
     if uploaded > 0:
-        # Faqat yangi qismlar haqiqatdan yuklangandagina katalog yangilanadi
-        try:
-            await sync_channel_catalog(message.bot)
-        except Exception as e:
-            logger.warning(f"Katalog sinxronlashda xatolik: {e}")
-
         # Telegram Cloud zaxiralash (@acacafagag)
         try:
             from services.backup_service import backup_service
@@ -766,8 +754,7 @@ async def finish_batch_upload(message: Message, state: FSMContext) -> None:
         await message.answer(
             f"🎉 <b>Ommaviy yuklash muvaffaqiyatli yakunlandi!</b>\n\n"
             f"🎬 Anime: <b>{safe_finish_title}</b>\n"
-            f"🎞 Yuklangan yangi qismlar: <b>{uploaded} ta</b>\n\n"
-            f"📌 <i>Kanal katalogidagi qismlar soni avtomatik yangilandi!</i>",
+            f"🎞 Yuklangan yangi qismlar: <b>{uploaded} ta</b>",
             reply_markup=get_admin_menu(),
             parse_mode="HTML"
         )
@@ -894,11 +881,6 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
         quality="720p",
         caption=message.caption
     )
-
-    try:
-        await sync_channel_catalog(message.bot)
-    except Exception as e:
-        logger.warning(f"Katalog yangilashda xatolik: {e}")
 
     # Telegram Cloud zaxiralash (@acacafagag)
     try:
@@ -1133,11 +1115,7 @@ async def process_delete_anime(message: Message, state: FSMContext) -> None:
 
     deleted = await db.delete_anime(code)
     if deleted:
-        try:
-            await sync_channel_catalog(message.bot)
-        except Exception:
-            pass
-        await message.answer(f"✅ <b>#{code}</b> kodli anime va uning barcha qismlari o'chirildi.\n📌 <i>Kanal katalogi ham avtomatik yangilandi.</i>", reply_markup=get_admin_menu(), parse_mode="HTML")
+        await message.answer(f"✅ <b>#{code}</b> kodli anime va uning barcha qismlari o'chirildi.", reply_markup=get_admin_menu(), parse_mode="HTML")
     else:
         await message.answer(f"❌ <b>#{code}</b> kodli anime topilmadi.", reply_markup=get_admin_menu(), parse_mode="HTML")
 
@@ -1151,8 +1129,8 @@ async def handle_channel_catalog_post(message: Message) -> None:
     success = await sync_channel_catalog(message.bot)
     if success:
         await message.answer(
-            f"✅ <b>Kanal Mundarijasi (Katalog)</b> muvaffaqiyatli sinxronlandi va {config.CHANNEL_USERNAME} kanaliga qadaldi!\n\n"
-            f"⚡️ <b>Zo'r yangilik:</b> Endi har safar yangi anime yoki yangi qismlar yuklaganingizda, kanalga yangi post chiqib obunachilarni bezovta qilmaydi! Aynan mana shu qadalgan Katalog posti <b>avtomatik va jimgina o'zi yangilanib</b> boraveradi.",
+            f"✅ <b>Kanal Mundarijasi (Katalog)</b> muvaffaqiyatli yangilandi va {config.CHANNEL_USERNAME} kanalida yangi/qadalgan holatda sinxronlandi!\n\n"
+            f"ℹ️ Obunachilarni bezovta qilmaslik uchun anime yoki qism yuklanganda kanalga avtomatik post yuborilmaydi. Katalog postini yangilash kerak bo'lganda aynan shu tugmadan foydalanasiz.",
             reply_markup=get_admin_menu(),
             parse_mode="HTML"
         )

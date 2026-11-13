@@ -1,7 +1,7 @@
 import html
 import logging
 from typing import Optional, Tuple
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions
 from aiogram.exceptions import TelegramBadRequest
 from database.models import Anime
 from config import config
@@ -96,7 +96,7 @@ def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
         f"\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🤖 <b>Bizning rasmiy bot:</b> @{config.BOT_USERNAME}\n"
         f"📢 <b>Kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
-        f"<i>Ro'yxat yangi animelar qo'shilishi bilan avtomatik yangilanib boradi!</i>"
+        f"<i>Barcha animelar bir joyda jamlangan rasmiy mundarija!</i>"
     )
 
     # Maksimal hajm chegarasi Telegramda 4096 belgi
@@ -180,7 +180,7 @@ def format_anime_card(anime: Anime) -> str:
 
 
 async def sync_channel_catalog(bot) -> bool:
-    """Kanalga chiqarilgan katalog (mundarija) postini avtomatik yangilash (odamlarga bildirishnoma bormasdan jimgina yangilanadi)"""
+    """Kanalga chiqarilgan katalog (mundarija) postini yangilash (odamlarga bildirishnoma bormasdan jimgina tahrirlanadi)"""
     from database.db import db
     animes = await db.get_recent_animes(limit=100)
     if not animes:
@@ -188,6 +188,17 @@ async def sync_channel_catalog(bot) -> bool:
 
     text, kb = format_channel_catalog(animes)
     catalog_msg_id_str = await db.get_setting("channel_catalog_msg_id")
+
+    # Agar bazada xabar ID saqlanmagan bo'lsa, kanalning hozirgi qadalgan xabarini tekshirib ko'ramiz
+    if not (catalog_msg_id_str and catalog_msg_id_str.isdigit()):
+        try:
+            chat = await bot.get_chat(config.CHANNEL_USERNAME)
+            if chat.pinned_message:
+                catalog_msg_id_str = str(chat.pinned_message.message_id)
+                await db.set_setting("channel_catalog_msg_id", catalog_msg_id_str)
+                logger.info(f"Kanal qadalgan posti bazaga bog'landi: ID {catalog_msg_id_str}")
+        except Exception as chat_err:
+            logger.warning(f"Kanal qadalgan xabarini aniqlashda xatolik: {chat_err}")
 
     needs_new_post = True
     if catalog_msg_id_str and catalog_msg_id_str.isdigit():
@@ -199,7 +210,8 @@ async def sync_channel_catalog(bot) -> bool:
                 message_id=catalog_msg_id,
                 text=text,
                 reply_markup=kb,
-                parse_mode="HTML"
+                parse_mode="HTML",
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
             )
             return True
         except TelegramBadRequest as e:
@@ -228,7 +240,8 @@ async def sync_channel_catalog(bot) -> bool:
                 chat_id=config.CHANNEL_USERNAME,
                 text=text,
                 reply_markup=kb,
-                parse_mode="HTML"
+                parse_mode="HTML",
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
             )
             try:
                 await bot.pin_chat_message(
