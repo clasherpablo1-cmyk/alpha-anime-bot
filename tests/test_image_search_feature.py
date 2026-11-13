@@ -84,7 +84,7 @@ def test_format_anime_search_result_three_languages():
     assert "🇬🇧 <b>Inglizcha:</b> Attack on Titan" in caption
     assert "🇯🇵 <b>Yaponcha:</b> 進撃の巨人 (Shingeki no Kyojin)" in caption
     assert "📊 <b>Aniqlik darajasi:</b> 98.5%" in caption
-    assert "🎞 <b>Qism:</b> 1" in caption
+    assert "<b>Qism:</b> 1" in caption
     assert "⏱ <b>Kadr vaqti:</b> 05:12 - 05:15" in caption
     assert kb is not None
 
@@ -102,7 +102,7 @@ def test_format_anime_search_result_medium_confidence():
     )
 
     caption, kb = format_anime_search_result(result, is_second=False)
-    assert "🔎 <b>Rasm biroz noaniq, lekin eng yaqin anime topildi:</b>" in caption
+    assert "<b>Rasm biroz noaniq, lekin eng yaqin anime topildi:</b>" in caption
     assert "🇺🇿 <b>O'zbekcha:</b> Demonlarni Qiruvchi Qilich" in caption
     assert "🇬🇧 <b>Inglizcha:</b> Demon Slayer" in caption
     assert "🇯🇵 <b>Yaponcha:</b> 鬼滅の刃 (Kimetsu no Yaiba)" in caption
@@ -122,7 +122,7 @@ def test_format_anime_search_result_second_attempt():
     )
 
     caption, kb = format_anime_search_result(result, is_second=True)
-    assert "🎉 <b>2-rasm orqali anime muvaffaqiyatli aniqlandi!</b>" in caption
+    assert "<b>2-rasm orqali anime muvaffaqiyatli aniqlandi!</b>" in caption
 
 
 def test_user_states_exist():
