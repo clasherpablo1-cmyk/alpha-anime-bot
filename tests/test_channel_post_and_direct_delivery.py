@@ -21,17 +21,18 @@ def test_format_channel_post_content_and_button():
     )
     text, kb = format_channel_post(anime)
     
-    assert "YANGI ANIME BOTGA JOYLANDI!" in text
+    assert "🍥" in text
     assert "Sening Isming" in text
-    assert "2016-yil" in text
+    assert "Kimi no Na wa." in text
+    assert "Reyting" in text
+    assert "IMDb" in text
     assert "Drama, Romantika" in text
-    assert "Mitsuha va Taki" in text
-    assert "#kod_77" in text
+    assert "#77" in text
     
     # Check button
     buttons = kb.inline_keyboard[0]
     view_btn = buttons[0]
-    assert "Ko'rish" in view_btn.text
+    assert "Yuklab olish" in view_btn.text
     assert "start=77" in view_btn.url
 
 
@@ -56,7 +57,8 @@ async def test_post_anime_to_channel_mock_bot():
     bot.send_photo.assert_called_once()
     call_kwargs = bot.send_photo.call_args[1]
     assert "caption" in call_kwargs
-    assert "YANGI ANIME BOTGA JOYLANDI!" in call_kwargs["caption"]
+    assert "🍥" in call_kwargs["caption"]
+    assert "Reyting" in call_kwargs["caption"]
     assert "reply_markup" in call_kwargs
 
 

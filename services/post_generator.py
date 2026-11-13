@@ -10,49 +10,55 @@ logger = logging.getLogger(__name__)
 
 
 def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
-    """Kanalga yangi anime joylanganda e'lon qilish uchun chiroyli bezatilgan post matni va inline tugmalar"""
+    """Kanalga yangi anime joylanganda e'lon qilish uchun foydalanuvchi so'ragan blockquote ko'rinishidagi post"""
     title_raw = anime.title_uz
     if anime.title_romaji and anime.title_romaji.lower() != anime.title_uz.lower():
-        title_raw += f" / {anime.title_romaji}"
+        title_raw += f" ( {anime.title_romaji} )"
+    elif anime.year:
+        title_raw += f" ( {anime.year} )"
     title_display = html.escape(title_raw, quote=False)
 
     year_str = f"{anime.year}-yil" if anime.year else "Noma'lum"
     genres_str = html.escape(anime.genres or "Sarguzasht, Fantastika", quote=False)
     status_str = html.escape(anime.status or "Tugallangan", quote=False)
-    total_episodes_str = f"{anime.total_episodes} ta qism" if anime.total_episodes else "Noma'lum"
-
-    desc_raw = anime.description or "Ajoyib qiziqarli anime sarguzashtlari!"
-    if len(desc_raw) > 280:
-        desc_raw = desc_raw[:280] + "..."
-    desc_str = html.escape(desc_raw, quote=False)
+    total_episodes_str = f"{anime.total_episodes} ta" if anime.total_episodes else "Noma'lum"
 
     bot_url = f"https://t.me/{config.BOT_USERNAME}?start={anime.code}"
 
-    clean_tag = "".join(c for c in anime.title_uz.lower() if c.isalnum())
-    tag = f"#{clean_tag}" if clean_tag else "#anime"
+    # 1. Sarlavha bloki (🍥 emoji va blockquote)
+    header_block = f"<blockquote>🍥 <b>{title_display}</b></blockquote>"
 
-    text = (
-        f"✨ <b>YANGI ANIME BOTGA JOYLANDI!</b> 🎬\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"🎬 <b>{title_display}</b>\n\n"
-        f"▫️ <b>Qismlar:</b> {total_episodes_str}\n"
-        f"▫️ <b>Holati:</b> {status_str}\n"
-        f"▫️ <b>Chiqarilgan yili:</b> {year_str}\n"
-        f"▫️ <b>Janr:</b> {genres_str}\n"
-        f"▫️ <b>Ovoz:</b> O'zbekcha tarjima (HD)\n\n"
-        f"📖 <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i>\n\n"
-        f"🔑 <b>Anime kodi:</b> <code>{anime.code}</code>\n"
-        f"👉 <b>Botimiz orqali tomosha qiling:</b> @{config.BOT_USERNAME}\n"
-        f"📢 <b>Kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"#kod_{anime.code} #anime {tag}"
+    # 2. Xususiyatlar jadval-qutisi (╭ ├ ╰ ramkasi bilan)
+    details_block = (
+        f"<blockquote>╭──────────────────────\n"
+        f"├ ⚛️ <b>Reyting -</b> 8.5 IMDb\n"
+        f"├ 🗃 <b>Qismlar -</b> {total_episodes_str}\n"
+        f"├ 🎙 <b>Ovoz -</b> O'zbekcha #Rasmiy\n"
+        f"├ 🎼 <b>Sifati -</b> 720p HD #Multi\n"
+        f"├ 🎭 <b>Janr -</b> {genres_str}\n"
+        f"├ 🔑 <b>Kodi -</b> <code>#{anime.code}</code>\n"
+        f"╰──────────────────────</blockquote>"
     )
+
+    # 3. Kengayuvchi (expandable) mazmuni
+    desc_block = ""
+    if anime.description:
+        desc_raw = anime.description.strip()
+        if len(desc_raw) > 300:
+            desc_raw = desc_raw[:300] + "..."
+        desc_str = html.escape(desc_raw, quote=False)
+        desc_block = f"\n\n<blockquote expandable>📖 <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i></blockquote>"
+
+    clean_tag = "".join(c for c in anime.title_uz.lower() if c.isalnum())
+    tags_line = f"\n\n#{clean_tag} #anime #kod_{anime.code}" if clean_tag else f"\n\n#anime #kod_{anime.code}"
+
+    text = f"{header_block}\n\n{details_block}{desc_block}{tags_line}"
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="👁 Ko'rish (Barcha qismlar)",
+                    text="📥 Yuklab olish / Ko'rish",
                     url=bot_url
                 )
             ],
@@ -190,37 +196,40 @@ def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
 
 
 def format_anime_card(anime: Anime) -> str:
-    """Bot ichida foydalanuvchiga anime haqida to'liq ma'lumot chiqarish (1024 belgi caption limitiga mos)"""
+    """Bot ichida foydalanuvchiga anime haqida zamonaviy blockquote formatida to'liq ma'lumot chiqarish"""
     title_raw = anime.title_uz
     if anime.title_romaji and anime.title_romaji.lower() != anime.title_uz.lower():
-        title_raw += f" ({anime.title_romaji})"
+        title_raw += f" ( {anime.title_romaji} )"
+    elif anime.year:
+        title_raw += f" ( {anime.year} )"
     title_display = html.escape(title_raw, quote=False)
 
-    year_str = f"{anime.year}" if anime.year else "Noma'lum"
     genres_str = html.escape(anime.genres or "Anime", quote=False)
     status_str = html.escape(anime.status or "Tugallangan", quote=False)
     try:
         loaded_eps_count = len(anime.episodes) if anime.episodes is not None else 0
     except Exception:
         loaded_eps_count = 0
-    total_episodes_str = f"{loaded_eps_count} / {anime.total_episodes}"
+    total_episodes_str = f"{loaded_eps_count} / {anime.total_episodes} ta"
 
-    desc_raw = anime.description or "Tavsif berilmagan."
+    desc_raw = anime.description or "Ajoyib qiziqarli anime sarguzashtlari!"
     if len(desc_raw) > 300:
         desc_raw = desc_raw[:300] + "..."
     desc_str = html.escape(desc_raw, quote=False)
 
     text = (
-        f"🎬 <b>{title_display}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"🔑 <b>Kodi:</b> <code>{anime.code}</code>\n"
-        f"📅 <b>Yili:</b> {year_str}\n"
-        f"🎭 <b>Janrlari:</b> {genres_str}\n"
-        f"📌 <b>Holati:</b> {status_str}\n"
-        f"🎞 <b>Yuklangan qismlar:</b> {total_episodes_str}\n"
-        f"👁 <b>Ko'rishlar soni:</b> {anime.views_count}\n"
-        f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"📖 <b>Mazmuni:</b>\n<i>{desc_str}</i>\n\n"
+        f"<blockquote>🍥 <b>{title_display}</b></blockquote>\n\n"
+        f"<blockquote>╭──────────────────────\n"
+        f"├ ⚛️ <b>Reyting -</b> 8.5 IMDb\n"
+        f"├ 🗃 <b>Qismlar -</b> {total_episodes_str}\n"
+        f"├ 🎙 <b>Ovoz -</b> O'zbekcha #Rasmiy\n"
+        f"├ 🎼 <b>Sifati -</b> 720p HD #Multi\n"
+        f"├ 🎭 <b>Janr -</b> {genres_str}\n"
+        f"├ 📌 <b>Holati -</b> {status_str}\n"
+        f"├ 🔑 <b>Kodi -</b> <code>#{anime.code}</code>\n"
+        f"├ 👁 <b>Ko'rishlar -</b> {anime.views_count}\n"
+        f"╰──────────────────────</blockquote>\n\n"
+        f"<blockquote expandable>📖 <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i></blockquote>\n\n"
         f"👇 <i>Qismni tanlang yoki barcha qismlarni bir bosishda yuklab oling:</i>"
     )
     return text
