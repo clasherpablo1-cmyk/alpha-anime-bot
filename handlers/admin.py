@@ -59,13 +59,25 @@ class DeleteAnimeStates(StatesGroup):
     waiting_for_code = State()
 
 
+async def _ensure_admin(message: Message) -> bool:
+    """Adminlik huquqini tekshirish; agar admin bo'lmasa xabar berib asosiy menyuga qaytarish"""
+    user = message.from_user
+    if not user or not await db.is_admin(user.id):
+        await message.answer(
+            "⛔️ <b>Kechirasiz, sizda admin huquqlari mavjud emas.</b>\n"
+            "Admin huquqini olish uchun: <code>/claim_admin parol</code>",
+            reply_markup=get_main_menu(is_admin=False),
+            parse_mode="HTML"
+        )
+        return False
+    return True
+
+
 # ------------------ ADMIN MENYUSI ------------------
 @admin_router.message(Command("admin"))
 @admin_router.message(F.text == "⚙️ Admin Panel")
 async def handle_admin_panel(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
-        await message.answer("⛔️ Kechirasiz, sizda admin huquqlari mavjud emas.")
+    if not await _ensure_admin(message):
         return
 
     await state.clear()
@@ -91,14 +103,18 @@ async def handle_back_to_main(message: Message, state: FSMContext) -> None:
 @admin_router.message(F.text == "❌ Bekor qilish")
 async def handle_admin_cancel(message: Message, state: FSMContext) -> None:
     await state.clear()
-    await message.answer("Amal bekor qilindi.", reply_markup=get_admin_menu())
+    user = message.from_user
+    is_admin = await db.is_admin(user.id) if user else False
+    if is_admin:
+        await message.answer("Amal bekor qilindi.", reply_markup=get_admin_menu())
+    else:
+        await message.answer("Amal bekor qilindi.", reply_markup=get_main_menu(is_admin=False))
 
 
 # ------------------ STATISTIKA ------------------
 @admin_router.message(F.text == "📊 Statistika")
 async def handle_stats(message: Message) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     stats = await db.get_statistics()
@@ -300,8 +316,7 @@ async def handle_restore_backup(message: Message) -> None:
 # ------------------ 1. YANGI ANIME QO'SHISH (WIZARD) ------------------
 @admin_router.message(F.text == "➕ Yangi anime qo'shish")
 async def start_add_anime(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     await state.set_state(AddAnimeStates.waiting_for_title)
@@ -620,8 +635,7 @@ def extract_episode_number(filename: Optional[str], caption: Optional[str], fall
 # ------------------ 2. OMMAVIY QISM YUKLASH (BATCH MODE - 720 QISMLI REJIM) ------------------
 @admin_router.message(F.text == "⚡️ Ommaviy qism yuklash")
 async def start_batch_upload(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     await state.set_state(BatchUploadStates.waiting_for_anime_code)
@@ -770,8 +784,7 @@ async def finish_batch_upload(message: Message, state: FSMContext) -> None:
 @admin_router.message(F.text == "🎬 Bitta qism yuklash")
 @admin_router.message(F.text == "🎬 Qism yuklash")
 async def start_add_episode(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     await state.set_state(AddEpisodeStates.waiting_for_anime_code)
@@ -906,8 +919,7 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
 # ------------------ 3. KANALGA POST CHIQARISH (AUTO-POSTER) ------------------
 @admin_router.message(F.text == "📢 Kanalga post chiqarish")
 async def start_channel_post(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     await state.set_state(PostToChannelStates.waiting_for_code)
@@ -1043,8 +1055,7 @@ async def handle_cancel_admin_action(callback: CallbackQuery, state: FSMContext)
 # ------------------ 4. BROADCAST (XABAR YUBORISH) ------------------
 @admin_router.message(F.text == "✉️ Xabar yuborish (Broadcast)")
 async def start_broadcast(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     await state.set_state(BroadcastStates.waiting_for_content)
@@ -1099,8 +1110,7 @@ async def process_broadcast(message: Message, state: FSMContext) -> None:
 # ------------------ 5. ANIMENI O'CHIRISH ------------------
 @admin_router.message(F.text == "🗑 Animeni o'chirish")
 async def start_delete_anime(message: Message, state: FSMContext) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     await state.set_state(DeleteAnimeStates.waiting_for_code)
@@ -1135,8 +1145,7 @@ async def process_delete_anime(message: Message, state: FSMContext) -> None:
 # ------------------ 6. KANAL UCHUN KATALOG (NAVIGATSIYA) POSTI ------------------
 @admin_router.message(F.text == "📋 Kanal katalog posti")
 async def handle_channel_catalog_post(message: Message) -> None:
-    user = message.from_user
-    if not user or not await db.is_admin(user.id):
+    if not await _ensure_admin(message):
         return
 
     success = await sync_channel_catalog(message.bot)

@@ -400,6 +400,16 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
         # Qidiruv servisini ishga tushirish
         result = await anime_image_search_service.search_by_image(image_bytes, is_second_attempt=is_second)
 
+        # Foydalanuvchi qidiruv davomida amalni bekor qilganini tekshirish
+        curr_state = await state.get_state()
+        expected = UserStates.waiting_for_second_photo.state if is_second else UserStates.waiting_for_anime_photo.state
+        if curr_state != expected:
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+            return
+
         # 0-holat: 18+ yoki nojo'ya kontent filtrlandi
         if result.status == "error" and result.raw_error == "18_plus_filtered":
             await state.clear()
