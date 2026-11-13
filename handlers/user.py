@@ -10,7 +10,7 @@ from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-from config import config
+from config import config, get_custom_emoji, get_emoji_id
 from database.db import db
 from database.models import Anime
 from services.post_generator import format_anime_card, format_episode_caption
@@ -64,10 +64,10 @@ async def handle_start(message: Message, command: CommandObject, state: FSMConte
 
     safe_user_name = html.escape(user.full_name or "Foydalanuvchi", quote=False)
     welcome_text = (
-        f"👋 Assalomu alaykum, <b>{safe_user_name}</b>!\n\n"
-        f"🎌 <b>«Uzbekcha animelar»</b> rasmiy botiga xush kelibsiz!\n\n"
+        f"{get_custom_emoji('salom', '👋')} Assalomu alaykum, <b>{safe_user_name}</b>!\n\n"
+        f"{get_custom_emoji('katalog', '🎌')} <b>«Uzbekcha animelar»</b> rasmiy botiga xush kelibsiz!\n\n"
         f"Bu yerda siz sara va yangi animelarni o'zbek tilida yuqori sifatda (HD) tomosha qilishingiz mumkin.\n\n"
-        f"🔢 <i>Anime kodini yozib yuboring (masalan: <code>1</code>) yoki quyidagi menyudan foydalaning:</i>"
+        f"{get_custom_emoji('kod', '🔢')} <i>Anime kodini yozib yuboring (masalan: <code>1</code>) yoki quyidagi menyudan foydalaning:</i>"
     )
     await message.answer(
         welcome_text,
@@ -88,7 +88,7 @@ async def handle_claim_admin(message: Message, command: CommandObject) -> None:
         await db.set_user_admin(user.id, is_admin=True)
         safe_admin_name = html.escape(user.full_name or "Foydalanuvchi", quote=False)
         await message.answer(
-            f"🎉 Tabriklaymiz, <b>{safe_admin_name}</b>!\n"
+            f"{get_custom_emoji('tabrik', '🎉')} Tabriklaymiz, <b>{safe_admin_name}</b>!\n"
             f"Sizga muvaffaqiyatli <b>Admin</b> huquqi berildi.\n"
             f"Endi /admin buyrug'i orqali boshqaruv paneliga kirishingiz mumkin.",
             reply_markup=get_main_menu(is_admin=True),
@@ -96,9 +96,9 @@ async def handle_claim_admin(message: Message, command: CommandObject) -> None:
         )
     else:
         await message.answer(
-            "❌ Parol noto'g'ri!\n"
-            "Admin huquqini olish uchun to'g'ri kalit so'zni kiriting:\n"
-            "<code>/claim_admin parol</code>",
+            f"{get_custom_emoji('xato', '❌')} Parol noto'g'ri!\n"
+            f"Admin huquqini olish uchun to'g'ri kalit so'zni kiriting:\n"
+            f"<code>/claim_admin parol</code>",
             parse_mode="HTML"
         )
 
@@ -131,9 +131,10 @@ async def handle_check_subscription(callback: CallbackQuery, state: FSMContext) 
             except Exception:
                 pass
             await callback.message.answer(
-                "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\n"
-                "Endi anime kodini yuborishingiz yoki menyudan foydalanishingiz mumkin:",
-                reply_markup=get_main_menu(is_admin=is_admin)
+                f"{get_custom_emoji('muvaffaqiyat', '✅')} Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\n"
+                f"Endi anime kodini yuborishingiz yoki menyudan foydalanishingiz mumkin:",
+                reply_markup=get_main_menu(is_admin=is_admin),
+                parse_mode="HTML"
             )
 
 
@@ -143,8 +144,8 @@ async def preview_subscription_prompt(message: Message) -> None:
     channels = await db.get_required_channels()
     sub_kb = get_subscription_keyboard(channels)
     await message.answer(
-        "⚠️ <b>Botdan to'liq foydalanish uchun quyidagi kanalimizga obuna bo'ling!</b>\n\n"
-        "<i>Kanalga a'zo bo'lgach, «✅ Obunani tekshirish» tugmasini bosing.</i>",
+        f"{get_custom_emoji('ogohlantirish', '⚠️')} <b>Botdan to'liq foydalanish uchun quyidagi kanalimizga obuna bo'ling!</b>\n\n"
+        f"<i>Kanalga a'zo bo'lgach, «✅ Obunani tekshirish» tugmasini bosing.</i>",
         reply_markup=sub_kb,
         parse_mode="HTML"
     )
@@ -156,8 +157,9 @@ async def handle_cancel(message: Message, state: FSMContext) -> None:
     await state.clear()
     is_admin = await db.is_admin(message.from_user.id) if message.from_user else False
     await message.answer(
-        "Amal bekor qilindi.",
-        reply_markup=get_main_menu(is_admin=is_admin)
+        f"{get_custom_emoji('xato', '❌')} Amal bekor qilindi.",
+        reply_markup=get_main_menu(is_admin=is_admin),
+        parse_mode="HTML"
     )
 
 
@@ -165,8 +167,8 @@ async def handle_cancel(message: Message, state: FSMContext) -> None:
 async def handle_search_button(message: Message, state: FSMContext) -> None:
     await state.set_state(UserStates.waiting_for_search_query)
     await message.answer(
-        "🔎 Qidirayotgan animengiz nomini (o'zbekcha yoki inglizcha) yozib yuboring:\n\n"
-        "<i>Masalan: Naruto, Solo Leveling, Demon Slayer...</i>",
+        f"{get_custom_emoji('qidiruv', '🔍')} Qidirayotgan animengiz nomini (o'zbekcha yoki inglizcha) yozib yuboring:\n\n"
+        f"<i>Masalan: Naruto, Solo Leveling, Demon Slayer...</i>",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
     )
@@ -176,8 +178,8 @@ async def handle_search_button(message: Message, state: FSMContext) -> None:
 async def handle_code_button(message: Message, state: FSMContext) -> None:
     await state.set_state(UserStates.waiting_for_code)
     await message.answer(
-        "🔢 Anime kodini kiriting:\n\n"
-        "<i>Masalan: 1, 5, 102...</i>",
+        f"{get_custom_emoji('kod', '🔢')} Anime kodini kiriting:\n\n"
+        f"<i>Masalan: 1, 5, 102...</i>",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
     )
@@ -187,10 +189,10 @@ async def handle_code_button(message: Message, state: FSMContext) -> None:
 async def handle_image_search_button(message: Message, state: FSMContext) -> None:
     await state.set_state(UserStates.waiting_for_anime_photo)
     await message.answer(
-        "📸 <b>Rasm orqali anime qidirish</b>\n\n"
-        "Iltimos, animedan olingan skrinshot yoki rasm yuboring.\n"
-        "Bot uni darhol tahlil qilib, <b>O'zbekcha</b>, <b>Inglizcha</b> va <b>Yaponcha</b> nomlarini topib beradi!\n\n"
-        "<i>💡 Maslahat: Kadr qanchalik tiniq bo'lsa, natija shunchalik aniq bo'ladi.</i>",
+        f"{get_custom_emoji('rasm', '📸')} <b>Rasm orqali anime qidirish</b>\n\n"
+        f"Iltimos, animedan olingan skrinshot yoki rasm yuboring.\n"
+        f"Bot uni darhol tahlil qilib, <b>O'zbekcha</b>, <b>Inglizcha</b> va <b>Yaponcha</b> nomlarini topib beradi!\n\n"
+        f"<i>{get_custom_emoji('maslahat', '💡')} Maslahat: Kadr qanchalik tiniq bo'lsa, natija shunchalik aniq bo'ladi.</i>",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
     )
@@ -200,7 +202,7 @@ async def handle_image_search_button(message: Message, state: FSMContext) -> Non
 async def handle_random_anime(message: Message) -> None:
     anime = await db.get_random_anime()
     if not anime:
-        await message.answer("😔 Hozircha bazada animelar mavjud emas.")
+        await message.answer(f"{get_custom_emoji('xato', '😔')} Hozircha bazada animelar mavjud emas.", parse_mode="HTML")
         return
     is_admin = await db.is_admin(message.from_user.id) if message.from_user else False
     await send_anime_card(message, anime, is_admin)
@@ -210,11 +212,11 @@ async def handle_random_anime(message: Message) -> None:
 async def handle_all_animes(message: Message) -> None:
     animes = await db.get_recent_animes(limit=50)
     if not animes:
-        await message.answer("😔 Hozircha bazada animelar mavjud emas.")
+        await message.answer(f"{get_custom_emoji('xato', '😔')} Hozircha bazada animelar mavjud emas.", parse_mode="HTML")
         return
     kb = get_anime_search_keyboard(animes)
     await message.answer(
-        f"🗂 <b>Barcha sara animelar ro'yxati (Jami {len(animes)} ta):</b>\n\n"
+        f"{get_custom_emoji('katalog', '🗂')} <b>Barcha sara animelar ro'yxati (Jami {len(animes)} ta):</b>\n\n"
         f"<i>Tomosha qilish uchun quyidagi tugmalardan birini bosing:</i>",
         reply_markup=kb,
         parse_mode="HTML"
@@ -225,16 +227,16 @@ async def handle_all_animes(message: Message) -> None:
 async def handle_recent_animes(message: Message) -> None:
     animes = await db.get_recent_animes(limit=10)
     if not animes:
-        await message.answer("😔 Hozircha yangi animelar mavjud emas.")
+        await message.answer(f"{get_custom_emoji('xato', '😔')} Hozircha yangi animelar mavjud emas.", parse_mode="HTML")
         return
     kb = get_anime_search_keyboard(animes)
-    await message.answer("🆕 <b>Oxirgi qo'shilgan sara animelar:</b>", reply_markup=kb, parse_mode="HTML")
+    await message.answer(f"{get_custom_emoji('yangi', '🆕')} <b>Oxirgi qo'shilgan sara animelar:</b>", reply_markup=kb, parse_mode="HTML")
 
 
 @user_router.message(F.text == "📢 Bizning kanal")
 async def handle_channel_info(message: Message) -> None:
     await message.answer(
-        f"📢 <b>Rasmiy Telegram kanalimiz:</b>\n\n"
+        f"{get_custom_emoji('kanal', '📢')} <b>Rasmiy Telegram kanalimiz:</b>\n\n"
         f"👉 {config.CHANNEL_URL}\n\n"
         f"Eng so'nggi qismlar va yangiliklar aynan shu yerda chiqib boradi!",
         parse_mode="HTML"
@@ -245,9 +247,9 @@ async def handle_channel_info(message: Message) -> None:
 async def handle_about(message: Message) -> None:
     stats = await db.get_statistics()
     about_text = (
-        f"🤖 <b>«Uzbekcha animelar» Boti</b>\n\n"
+        f"{get_custom_emoji('bot', '🤖')} <b>«Uzbekcha animelar» Boti</b>\n\n"
         f"Ushbu bot orqali siz sevimli animelaringizni o'zbek tilida yuqori sifatda bepul tomosha qilishingiz mumkin.\n\n"
-        f"📊 <b>Bazada:</b>\n"
+        f"{get_custom_emoji('statistika', '📊')} <b>Bazada:</b>\n"
         f"• Animelar soni: <b>{stats['animes_count']} ta</b>\n"
         f"• Yuklangan qismlar: <b>{stats['episodes_count']} ta</b>\n"
         f"• Umumiy tomoshalar: <b>{stats['total_views']} marotaba</b>\n\n"
@@ -269,7 +271,7 @@ async def process_search_query(message: Message, state: FSMContext) -> None:
     safe_query = html.escape(query, quote=False)
     if not animes:
         await message.answer(
-            f"🔍 «<b>{safe_query}</b>» nomli anime hali botimizga yuklanmagan.\n\n"
+            f"{get_custom_emoji('qidiruv', '🔍')} «<b>{safe_query}</b>» nomli anime hali botimizga yuklanmagan.\n\n"
             f"💡 <i>Mavjud barcha animelarni ko'rish uchun «🗂 Katalog» tugmasidan foydalaning yoki anime kodi (masalan: <code>1</code>) orqali qidiring.</i>",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
@@ -278,7 +280,7 @@ async def process_search_query(message: Message, state: FSMContext) -> None:
 
     kb = get_anime_search_keyboard(animes)
     await message.answer(
-        f"🔍 «<b>{safe_query}</b>» bo'yicha topilgan animelar:",
+        f"{get_custom_emoji('qidiruv', '🔍')} «<b>{safe_query}</b>» bo'yicha topilgan animelar:",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -295,7 +297,7 @@ async def process_code_input(message: Message, state: FSMContext) -> None:
     match = re.search(r"\d+", text)
     if not match:
         await message.answer(
-            "❌ Iltimos, faqat raqamli kod kiriting (masalan: <code>1</code>).",
+            f"{get_custom_emoji('xato', '❌')} Iltimos, faqat raqamli kod kiriting (masalan: <code>1</code>).",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
         )
@@ -305,7 +307,7 @@ async def process_code_input(message: Message, state: FSMContext) -> None:
     anime = await db.get_anime_by_code(code)
     if not anime:
         await message.answer(
-            f"❌ <b>#{code}</b> raqamli anime topilmadi.\nKodni qayta tekshirib ko'ring.",
+            f"{get_custom_emoji('xato', '❌')} <b>#{code}</b> raqamli anime topilmadi.\nKodni qayta tekshirib ko'ring.",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
         )
@@ -330,7 +332,7 @@ async def handle_direct_code_text(message: Message) -> None:
     anime = await db.get_anime_by_code(code)
     if not anime:
         await message.answer(
-            f"❌ <b>#{code}</b> raqamli anime topilmadi.\nKodni qaytadan tekshirib ko'ring.",
+            f"{get_custom_emoji('xato', '❌')} <b>#{code}</b> raqamli anime topilmadi.\nKodni qaytadan tekshirib ko'ring.",
             parse_mode="HTML"
         )
         return
@@ -346,46 +348,46 @@ def format_anime_search_result(result: AnimeSearchResult, is_second: bool = Fals
     """
     lines = []
     if is_second:
-        lines.append("🎉 <b>2-rasm orqali anime muvaffaqiyatli aniqlandi!</b>\n")
+        lines.append(f"{get_custom_emoji('tabrik', '🎉')} <b>2-rasm orqali anime muvaffaqiyatli aniqlandi!</b>\n")
     elif result.status == "high_confidence":
-        lines.append("🎯 <b>Anime muvaffaqiyatli topildi!</b>\n")
+        lines.append(f"{get_custom_emoji('muvaffaqiyat', '🎯')} <b>Anime muvaffaqiyatli topildi!</b>\n")
     else:
-        lines.append("🔎 <b>Rasm biroz noaniq, lekin eng yaqin anime topildi:</b>\n")
+        lines.append(f"{get_custom_emoji('qidiruv', '🔎')} <b>Rasm biroz noaniq, lekin eng yaqin anime topildi:</b>\n")
 
     safe_uzbek = html.escape(result.title_uzbek or "", quote=False)
     safe_english = html.escape(result.title_english or "", quote=False)
-    lines.append(f"🇺🇿 <b>O'zbekcha:</b> {safe_uzbek}")
-    lines.append(f"🇬🇧 <b>Inglizcha:</b> {safe_english}")
+    lines.append(f"{get_custom_emoji('til_uz', '🇺🇿')} <b>O'zbekcha:</b> {safe_uzbek}")
+    lines.append(f"{get_custom_emoji('til_en', '🇬🇧')} <b>Inglizcha:</b> {safe_english}")
     if result.title_japanese and result.title_romaji and result.title_japanese != result.title_romaji:
         safe_jap = html.escape(result.title_japanese, quote=False)
         safe_rom = html.escape(result.title_romaji, quote=False)
-        lines.append(f"🇯🇵 <b>Yaponcha:</b> {safe_jap} ({safe_rom})")
+        lines.append(f"{get_custom_emoji('til_jp', '🇯🇵')} <b>Yaponcha:</b> {safe_jap} ({safe_rom})")
     elif result.title_japanese or result.title_romaji:
         safe_jap = html.escape(result.title_japanese or result.title_romaji, quote=False)
-        lines.append(f"🇯🇵 <b>Yaponcha:</b> {safe_jap}")
+        lines.append(f"{get_custom_emoji('til_jp', '🇯🇵')} <b>Yaponcha:</b> {safe_jap}")
 
     if result.similarity_percent > 0:
-        lines.append(f"\n📊 <b>Aniqlik darajasi:</b> {result.similarity_percent}%")
+        lines.append(f"\n{get_custom_emoji('statistika', '📊')} <b>Aniqlik darajasi:</b> {result.similarity_percent}%")
     if result.episode is not None:
-        lines.append(f"🎞 <b>Qism:</b> {result.episode}")
+        lines.append(f"{get_custom_emoji('video', '🎞')} <b>Qism:</b> {result.episode}")
     if result.timestamp:
-        lines.append(f"⏱ <b>Kadr vaqti:</b> {result.timestamp}")
+        lines.append(f"{get_custom_emoji('vaqt', '⏱')} <b>Kadr vaqti:</b> {result.timestamp}")
     if result.genres_uz:
         safe_genres = html.escape(result.genres_uz, quote=False)
-        lines.append(f"🎭 <b>Janrlar:</b> {safe_genres}")
+        lines.append(f"{get_custom_emoji('janr', '🎭')} <b>Janrlar:</b> {safe_genres}")
     if result.character_name:
         safe_char = html.escape(result.character_name, quote=False)
-        lines.append(f"👤 <b>Qahramon:</b> {safe_char}")
+        lines.append(f"{get_custom_emoji('qahramon', '👤')} <b>Qahramon:</b> {safe_char}")
 
     buttons = []
     if result.db_anime:
         lines.append(f"\n🎬 <i>Ushbu anime bizning bot bazamizda mavjud! Quyidagi tugma orqali tomosha qilishingiz mumkin.</i>")
-        buttons.append([InlineKeyboardButton(text="🎬 Botda tomosha qilish", callback_data=f"anime_code_{result.db_anime.code}")])
+        buttons.append([InlineKeyboardButton(text="🎬 Botda tomosha qilish", callback_data=f"anime_code_{result.db_anime.code}", icon_custom_emoji_id=get_emoji_id("btn_play"))])
     elif result.anilist_url:
-        buttons.append([InlineKeyboardButton(text="🌐 AniList da ko'rish", url=result.anilist_url)])
+        buttons.append([InlineKeyboardButton(text="🌐 AniList da ko'rish", url=result.anilist_url, icon_custom_emoji_id=get_emoji_id("btn_channel"))])
 
     if not is_second and result.status == "medium_confidence":
-        lines.append("\n⚠️ <i>Agar bu siz qidirgan anime bo'lmasa, iltimos, <b>2-rasmni</b> (aniqroq kadr yoki personaj yuzini) yuboring!</i>")
+        lines.append(f"\n{get_custom_emoji('ogohlantirish', '⚠️')} <i>Agar bu siz qidirgan anime bo'lmasa, iltimos, <b>2-rasmni</b> (aniqroq kadr yoki personaj yuzini) yuboring!</i>")
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
     return "\n".join(lines), kb
@@ -403,7 +405,7 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
         return
 
     status_msg = await message.answer(
-        "🔍 <i>Rasm tahlil qilinmoqda, iltimos kuting...</i>",
+        f"{get_custom_emoji('qidiruv', '🔍')} <i>Rasm tahlil qilinmoqda, iltimos kuting...</i>",
         parse_mode="HTML"
     )
 
@@ -435,8 +437,8 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
             except Exception:
                 pass
             await message.answer(
-                "🚫 <b>Kechirasiz, 18+ yoki nojo'ya kontentlar ushbu botda qat'iyan taqiqlangan.</b>\n"
-                "Iltimos, faqat odatiy anime kadrlarini yuboring.",
+                f"{get_custom_emoji('xato', '🚫')} <b>Kechirasiz, 18+ yoki nojo'ya kontentlar ushbu botda qat'iyan taqiqlangan.</b>\n"
+                f"Iltimos, faqat odatiy anime kadrlarini yuboring.",
                 reply_markup=get_main_menu(is_admin=is_admin),
                 parse_mode="HTML"
             )
@@ -454,7 +456,7 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
                     await message.answer(caption, reply_markup=kb, parse_mode="HTML")
 
                 await message.answer(
-                    "⚠️ <i>Agar bu siz qidirgan anime bo'lmasa, iltimos, <b>2-rasmni</b> (aniqroq kadr yoki personaj yuzini) yuboring!</i>",
+                    f"{get_custom_emoji('ogohlantirish', '⚠️')} <i>Agar bu siz qidirgan anime bo'lmasa, iltimos, <b>2-rasmni</b> (aniqroq kadr yoki personaj yuzini) yuboring!</i>",
                     reply_markup=get_cancel_reply(),
                     parse_mode="HTML"
                 )
@@ -467,7 +469,8 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
 
                 await message.answer(
                     "Quyidagi menyudan foydalanishingiz mumkin:",
-                    reply_markup=get_main_menu(is_admin=is_admin)
+                    reply_markup=get_main_menu(is_admin=is_admin),
+                    parse_mode="HTML"
                 )
 
         # 2-holat: 1-rasm juda noaniq bo'lib topilmadi -> muloyimlik bilan 2-rasm so'raladi
@@ -479,10 +482,10 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
                 pass
 
             await message.answer(
-                "😔 <b>Kechirasiz, 1-rasm orqali animeni aniq topib bo'lmadi...</b>\n\n"
-                "Rasm biroz xira, juda kichik yoki noaniq bo'lishi mumkin.\n\n"
-                "🙏 <b>Iltimos, aniqroq bo'lishi uchun 2-rasmni yuboring!</b>\n"
-                "<i>(Bosh qahramonning yuzi, yorug'roq kadr yoki yaqinroq lavha)</i>",
+                f"{get_custom_emoji('xato', '😔')} <b>Kechirasiz, 1-rasm orqali animeni aniq topib bo'lmadi...</b>\n\n"
+                f"Rasm biroz xira, juda kichik yoki noaniq bo'lishi mumkin.\n\n"
+                f"🙏 <b>Iltimos, aniqroq bo'lishi uchun 2-rasmni yuboring!</b>\n"
+                f"<i>(Bosh qahramonning yuzi, yorug'roq kadr yoki yaqinroq lavha)</i>",
                 reply_markup=get_cancel_reply(),
                 parse_mode="HTML"
             )
@@ -496,8 +499,8 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
                 pass
 
             await message.answer(
-                "😔 <b>Afsuski, 2-rasm orqali ham animeni aniqlash imkoni bo'lmadi.</b>\n\n"
-                "💡 <i>Maslahat: Animening nomini matn orqali qidirib ko'ring yoki sifatliroq boshqa kadr yuboring.</i>",
+                f"{get_custom_emoji('xato', '😔')} <b>Afsuski, 2-rasm orqali ham animeni aniqlash imkoni bo'lmadi.</b>\n\n"
+                f"💡 <i>Maslahat: Animening nomini matn orqali qidirib ko'ring yoki sifatliroq boshqa kadr yuboring.</i>",
                 reply_markup=get_main_menu(is_admin=is_admin),
                 parse_mode="HTML"
             )
@@ -510,8 +513,8 @@ async def _process_image_search(message: Message, state: FSMContext, is_second: 
         except Exception:
             pass
         await message.answer(
-            "⚠️ <b>Rasm tahlilida kutilmagan xatolik yuz berdi.</b>\n"
-            "Iltimos, birozdan so'ng qayta urinib ko'ring.",
+            f"{get_custom_emoji('ogohlantirish', '⚠️')} <b>Rasm tahlilida kutilmagan xatolik yuz berdi.</b>\n"
+            f"Iltimos, birozdan so'ng qayta urinib ko'ring.",
             reply_markup=get_main_menu(is_admin=is_admin),
             parse_mode="HTML"
         )
@@ -532,7 +535,7 @@ async def handle_non_photo_first(message: Message) -> None:
     if message.text == "❌ Bekor qilish":
         return
     await message.answer(
-        "📷 Iltimos, animedan olingan <b>rasm (skrinshot)</b> yuboring yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing:",
+        f"{get_custom_emoji('rasm', '📷')} Iltimos, animedan olingan <b>rasm (skrinshot)</b> yuboring yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing:",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
     )
@@ -543,7 +546,7 @@ async def handle_non_photo_second(message: Message) -> None:
     if message.text == "❌ Bekor qilish":
         return
     await message.answer(
-        "📷 Iltimos, <b>2-rasmni</b> yuboring yoki to'xtatish uchun «❌ Bekor qilish» tugmasini bosing:",
+        f"{get_custom_emoji('rasm', '📷')} Iltimos, <b>2-rasmni</b> yuboring yoki to'xtatish uchun «❌ Bekor qilish» tugmasini bosing:",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
     )
@@ -632,7 +635,8 @@ async def handle_episode_download(callback: CallbackQuery) -> None:
         await db.increment_episode_downloads(episode.id)
     except Exception as e:
         await callback.message.answer(
-            "❌ Videoni yuborishda xatolik yuz berdi. Iltimos, adminga murojaat qiling."
+            f"{get_custom_emoji('xato', '❌')} Videoni yuborishda xatolik yuz berdi. Iltimos, adminga murojaat qiling.",
+            parse_mode="HTML"
         )
 
 
@@ -656,8 +660,8 @@ async def handle_download_all_episodes(callback: CallbackQuery) -> None:
     await callback.answer(f"⏳ Jami {total_eps} ta qism yuborilmoqda...")
 
     status_msg = await callback.message.answer(
-        f"📥 <b>{anime.title_uz}</b> — Barcha ({total_eps} ta) qismlar yuborilmoqda...\n"
-        f"<i>Iltimos, ozroq kuting...</i> 🍿",
+        f"{get_custom_emoji('yuklash', '📥')} <b>{anime.title_uz}</b> — Barcha ({total_eps} ta) qismlar yuborilmoqda...\n"
+        f"<i>Iltimos, ozroq kuting...</i> {get_custom_emoji('popcorn', '🍿')}",
         parse_mode="HTML"
     )
 
@@ -685,9 +689,9 @@ async def handle_download_all_episodes(callback: CallbackQuery) -> None:
 
     try:
         await status_msg.edit_text(
-            f"✅ <b>{anime.title_uz}</b> animening barcha ({sent_count}/{total_eps}) qismlari yuborildi!\n\n"
-            f"📢 Kanalimiz: {config.CHANNEL_USERNAME}\n"
-            f"<i>Maroqli tomosha tilaymiz!</i> 🍿",
+            f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>{anime.title_uz}</b> animening barcha ({sent_count}/{total_eps}) qismlari yuborildi!\n\n"
+            f"{get_custom_emoji('kanal', '📢')} Kanalimiz: {config.CHANNEL_USERNAME}\n"
+            f"<i>Maroqli tomosha tilaymiz!</i> {get_custom_emoji('popcorn', '🍿')}",
             parse_mode="HTML"
         )
     except Exception:
@@ -700,15 +704,15 @@ async def send_all_episodes_direct(message: Message, anime: Anime) -> None:
     total_eps = len(episodes)
     if total_eps == 0:
         await message.answer(
-            f"⏳ <b>{html.escape(anime.title_uz, quote=False)}</b> animening qismlari tez orada botga yuklanadi!\n"
+            f"{get_custom_emoji('kutish', '⏳')} <b>{html.escape(anime.title_uz, quote=False)}</b> animening qismlari tez orada botga yuklanadi!\n"
             f"Kanalimizni kuzatib boring: {config.CHANNEL_USERNAME}",
             parse_mode="HTML"
         )
         return
 
     status_msg = await message.answer(
-        f"📥 <b>{html.escape(anime.title_uz, quote=False)}</b> — Barcha ({total_eps} ta) qismlar yuborilmoqda...\n"
-        f"<i>Iltimos, ozroq kuting...</i> 🍿",
+        f"{get_custom_emoji('yuklash', '📥')} <b>{html.escape(anime.title_uz, quote=False)}</b> — Barcha ({total_eps} ta) qismlar yuborilmoqda...\n"
+        f"<i>Iltimos, ozroq kuting...</i> {get_custom_emoji('popcorn', '🍿')}",
         parse_mode="HTML"
     )
 
@@ -736,9 +740,9 @@ async def send_all_episodes_direct(message: Message, anime: Anime) -> None:
 
     try:
         await status_msg.edit_text(
-            f"✅ <b>{html.escape(anime.title_uz, quote=False)}</b> animening barcha ({sent_count}/{total_eps}) qismlari yetkazildi!\n\n"
-            f"📢 Kanalimiz: {config.CHANNEL_USERNAME}\n"
-            f"<i>Maroqli tomosha tilaymiz!</i> 🍿",
+            f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>{html.escape(anime.title_uz, quote=False)}</b> animening barcha ({sent_count}/{total_eps}) qismlari yetkazildi!\n\n"
+            f"{get_custom_emoji('kanal', '📢')} Kanalimiz: {config.CHANNEL_USERNAME}\n"
+            f"<i>Maroqli tomosha tilaymiz!</i> {get_custom_emoji('popcorn', '🍿')}",
             parse_mode="HTML"
         )
     except Exception:
@@ -792,7 +796,7 @@ async def handle_unknown_message(message: Message, state: FSMContext) -> None:
     is_admin = await db.is_admin(user.id) if user else False
 
     await message.answer(
-        "Anime kodini kiriting (masalan: <code>1</code>) yoki quyidagi menyudan foydalaning:",
+        f"{get_custom_emoji('kod', '🔢')} Anime kodini kiriting (masalan: <code>1</code>) yoki quyidagi menyudan foydalaning:",
         reply_markup=get_main_menu(is_admin=is_admin),
         parse_mode="HTML"
     )

@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions, URLInputFile
 from aiogram.exceptions import TelegramBadRequest
 from database.models import Anime
-from config import config
+from config import config, get_custom_emoji, get_emoji_id, CUSTOM_EMOJIS
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +26,17 @@ def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
     bot_url = f"https://t.me/{config.BOT_USERNAME}?start={anime.code}"
 
     # 1. Sarlavha bloki (🍥 emoji va blockquote)
-    header_block = f"<blockquote>🍥 <b>{title_display}</b></blockquote>"
+    header_block = f"<blockquote>{get_custom_emoji('sarlavha', '🍥')} <b>{title_display}</b></blockquote>"
 
     # 2. Xususiyatlar jadval-qutisi (╭ ├ ╰ ramkasi bilan)
     details_block = (
         f"<blockquote>╭──────────────────────\n"
-        f"├ ⚛️ <b>Reyting -</b> 8.5 IMDb\n"
-        f"├ 🗃 <b>Qismlar -</b> {total_episodes_str}\n"
-        f"├ 🎙 <b>Ovoz -</b> O'zbekcha #Rasmiy\n"
-        f"├ 🎼 <b>Sifati -</b> 720p HD #Multi\n"
-        f"├ 🎭 <b>Janr -</b> {genres_str}\n"
-        f"├ 🔑 <b>Kodi -</b> <code>#{anime.code}</code>\n"
+        f"├ {get_custom_emoji('reyting', '⚛️')} <b>Reyting -</b> 8.5 IMDb\n"
+        f"├ {get_custom_emoji('qismlar', '🗃')} <b>Qismlar -</b> {total_episodes_str}\n"
+        f"├ {get_custom_emoji('ovoz', '🎙')} <b>Ovoz -</b> O'zbekcha #Rasmiy\n"
+        f"├ {get_custom_emoji('sifat', '🎼')} <b>Sifati -</b> 720p HD #Multi\n"
+        f"├ {get_custom_emoji('janr', '🎭')} <b>Janr -</b> {genres_str}\n"
+        f"├ {get_custom_emoji('kod', '🔑')} <b>Kodi -</b> <code>#{anime.code}</code>\n"
         f"╰──────────────────────</blockquote>"
     )
 
@@ -47,7 +47,7 @@ def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
         if len(desc_raw) > 300:
             desc_raw = desc_raw[:300] + "..."
         desc_str = html.escape(desc_raw, quote=False)
-        desc_block = f"\n\n<blockquote expandable>📖 <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i></blockquote>"
+        desc_block = f"\n\n<blockquote expandable>{get_custom_emoji('tavsif', '📖')} <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i></blockquote>"
 
     clean_tag = "".join(c for c in anime.title_uz.lower() if c.isalnum())
     tags_line = f"\n\n#{clean_tag} #anime #kod_{anime.code}" if clean_tag else f"\n\n#anime #kod_{anime.code}"
@@ -59,13 +59,15 @@ def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
             [
                 InlineKeyboardButton(
                     text="📥 Yuklab olish / Ko'rish",
-                    url=bot_url
+                    url=bot_url,
+                    icon_custom_emoji_id=get_emoji_id("btn_download")
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="📢 Kanalimiz",
-                    url=config.CHANNEL_URL
+                    url=config.CHANNEL_URL,
+                    icon_custom_emoji_id=get_emoji_id("btn_channel")
                 )
             ]
         ]
@@ -124,14 +126,14 @@ def format_episode_caption(anime_title: str, ep_number: int, quality: str = "720
     safe_quality = html.escape(quality, quote=False)
 
     text = (
-        f"🎬 <b>{safe_title}</b> — <b>{ep_number}-qism</b>\n"
+        f"{get_custom_emoji('video', '🎬')} <b>{safe_title}</b> — <b>{ep_number}-qism</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"💾 Sifati: <b>{safe_quality} HD</b>\n"
-        f"🇺🇿 Tili: <b>O'zbekcha tarjima</b>\n"
-        f"📢 Bizning kanal: {config.CHANNEL_USERNAME}\n"
-        f"🤖 Bot: @{config.BOT_USERNAME}\n"
+        f"{get_custom_emoji('sifat', '💾')} Sifati: <b>{safe_quality} HD</b>\n"
+        f"{get_custom_emoji('til_uz', '🇺🇿')} Tili: <b>O'zbekcha tarjima</b>\n"
+        f"{get_custom_emoji('kanal', '📢')} Bizning kanal: {config.CHANNEL_USERNAME}\n"
+        f"{get_custom_emoji('bot', '🤖')} Bot: @{config.BOT_USERNAME}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Do'stlaringiz bilan ulashing! Maroqli tomosha!</i> 🍿\n"
+        f"<i>Do'stlaringiz bilan ulashing! Maroqli tomosha!</i> {get_custom_emoji('popcorn', '🍿')}\n"
         f"{tag} #uzbekcha_anime #qism_{ep_number}"
     )
     return text
@@ -140,15 +142,15 @@ def format_episode_caption(anime_title: str, ep_number: int, quality: str = "720
 def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
     """Kanalga qadab qo'yish uchun barcha animelar matnli mundarijasi (ko'k giperhavolalar bilan, 4000 belgi xavfsiz)"""
     header = (
-        f"🎌 <b>«UZBEKCHA ANIMELAR» MUNDARIJASI (KATALOG)</b>\n"
+        f"{get_custom_emoji('katalog', '🎌')} <b>«UZBEKCHA ANIMELAR» MUNDARIJASI (KATALOG)</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"<i>Animeni 1 ta tugma bilan yuklab olish yoki tomosha qilish uchun uning <b>ko'k nomini</b> bosing:</i>\n\n"
     )
 
     footer = (
         f"\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🤖 <b>Bizning rasmiy bot:</b> @{config.BOT_USERNAME}\n"
-        f"📢 <b>Kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
+        f"{get_custom_emoji('bot', '🤖')} <b>Bizning rasmiy bot:</b> @{config.BOT_USERNAME}\n"
+        f"{get_custom_emoji('kanal', '📢')} <b>Kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
         f"<i>Barcha animelar bir joyda jamlangan rasmiy mundarija!</i>"
     )
 
@@ -167,7 +169,7 @@ def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
         safe_title = html.escape(anime.title_uz, quote=False)
 
         line = (
-            f"🔹 <a href=\"{bot_url}\"><b>{safe_title}</b></a> — "
+            f"{get_custom_emoji('nuqta', '🔹')} <a href=\"{bot_url}\"><b>{safe_title}</b></a> — "
             f"<i>{total_str} ta qism</i> [#{anime.code}]\n"
         )
         if len("".join(lines)) + len(line) < available_chars:
@@ -186,7 +188,8 @@ def format_channel_catalog(animes) -> Tuple[str, InlineKeyboardMarkup]:
             [
                 InlineKeyboardButton(
                     text="🤖 Bot orqali barcha qismlarni yuklash",
-                    url=f"https://t.me/{config.BOT_USERNAME}"
+                    url=f"https://t.me/{config.BOT_USERNAME}",
+                    icon_custom_emoji_id=get_emoji_id("btn_download")
                 )
             ]
         ]
@@ -218,19 +221,19 @@ def format_anime_card(anime: Anime) -> str:
     desc_str = html.escape(desc_raw, quote=False)
 
     text = (
-        f"<blockquote>🍥 <b>{title_display}</b></blockquote>\n\n"
+        f"<blockquote>{get_custom_emoji('sarlavha', '🍥')} <b>{title_display}</b></blockquote>\n\n"
         f"<blockquote>╭──────────────────────\n"
-        f"├ ⚛️ <b>Reyting -</b> 8.5 IMDb\n"
-        f"├ 🗃 <b>Qismlar -</b> {total_episodes_str}\n"
-        f"├ 🎙 <b>Ovoz -</b> O'zbekcha #Rasmiy\n"
-        f"├ 🎼 <b>Sifati -</b> 720p HD #Multi\n"
-        f"├ 🎭 <b>Janr -</b> {genres_str}\n"
-        f"├ 📌 <b>Holati -</b> {status_str}\n"
-        f"├ 🔑 <b>Kodi -</b> <code>#{anime.code}</code>\n"
-        f"├ 👁 <b>Ko'rishlar -</b> {anime.views_count}\n"
+        f"├ {get_custom_emoji('reyting', '⚛️')} <b>Reyting -</b> 8.5 IMDb\n"
+        f"├ {get_custom_emoji('qismlar', '🗃')} <b>Qismlar -</b> {total_episodes_str}\n"
+        f"├ {get_custom_emoji('ovoz', '🎙')} <b>Ovoz -</b> O'zbekcha #Rasmiy\n"
+        f"├ {get_custom_emoji('sifat', '🎼')} <b>Sifati -</b> 720p HD #Multi\n"
+        f"├ {get_custom_emoji('janr', '🎭')} <b>Janr -</b> {genres_str}\n"
+        f"├ {get_custom_emoji('holat', '📌')} <b>Holati -</b> {status_str}\n"
+        f"├ {get_custom_emoji('kod', '🔑')} <b>Kodi -</b> <code>#{anime.code}</code>\n"
+        f"├ {get_custom_emoji('korishlar', '👁')} <b>Ko'rishlar -</b> {anime.views_count}\n"
         f"╰──────────────────────</blockquote>\n\n"
-        f"<blockquote expandable>📖 <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i></blockquote>\n\n"
-        f"👇 <i>Qismni tanlang yoki barcha qismlarni bir bosishda yuklab oling:</i>"
+        f"<blockquote expandable>{get_custom_emoji('tavsif', '📖')} <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i></blockquote>\n\n"
+        f"{get_custom_emoji('pastga', '👇')} <i>Qismni tanlang yoki barcha qismlarni bir bosishda yuklab oling:</i>"
     )
     return text
 

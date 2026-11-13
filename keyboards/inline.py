@@ -1,7 +1,7 @@
 from typing import Sequence, List
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from database.models import Anime, Episode, RequiredChannel
-from config import config
+from config import config, get_emoji_id
 
 
 def get_subscription_keyboard(channels: Sequence[RequiredChannel]) -> InlineKeyboardMarkup:
@@ -12,14 +12,16 @@ def get_subscription_keyboard(channels: Sequence[RequiredChannel]) -> InlineKeyb
         keyboard_buttons.append([
             InlineKeyboardButton(
                 text=f"📢 {ch.channel_title}",
-                url=ch.channel_url
+                url=ch.channel_url,
+                icon_custom_emoji_id=get_emoji_id("btn_channel")
             )
         ])
 
     keyboard_buttons.append([
         InlineKeyboardButton(
             text="✅ Obunani tekshirish",
-            callback_data="check_subscription"
+            callback_data="check_subscription",
+            icon_custom_emoji_id=get_emoji_id("btn_check")
         )
     ])
 
@@ -44,7 +46,8 @@ def get_anime_episodes_keyboard(
         keyboard_buttons.append([
             InlineKeyboardButton(
                 text=f"📥 Barcha qismlarni yuklab olish ({total_eps} ta qism)",
-                callback_data=f"dl_all_{anime.id}"
+                callback_data=f"dl_all_{anime.id}",
+                icon_custom_emoji_id=get_emoji_id("btn_download")
             )
         ])
 
@@ -56,7 +59,13 @@ def get_anime_episodes_keyboard(
         for ep in page_episodes:
             btn_text = f"▶️ {ep.episode_number}-qism"
             callback = f"ep_{anime.id}_{ep.episode_number}"
-            row.append(InlineKeyboardButton(text=btn_text, callback_data=callback))
+            row.append(
+                InlineKeyboardButton(
+                    text=btn_text,
+                    callback_data=callback,
+                    icon_custom_emoji_id=get_emoji_id("btn_play")
+                )
+            )
             if len(row) == 4:
                 keyboard_buttons.append(row)
                 row = []
@@ -69,14 +78,16 @@ def get_anime_episodes_keyboard(
             nav_buttons.append(
                 InlineKeyboardButton(
                     text="⬅️ Oldingi",
-                    callback_data=f"page_{anime.id}_{page - 1}"
+                    callback_data=f"page_{anime.id}_{page - 1}",
+                    icon_custom_emoji_id=get_emoji_id("btn_prev")
                 )
             )
         if end_idx < total_eps:
             nav_buttons.append(
                 InlineKeyboardButton(
                     text="Keyingi ➡️",
-                    callback_data=f"page_{anime.id}_{page + 1}"
+                    callback_data=f"page_{anime.id}_{page + 1}",
+                    icon_custom_emoji_id=get_emoji_id("btn_next")
                 )
             )
         if nav_buttons:
@@ -85,7 +96,8 @@ def get_anime_episodes_keyboard(
         keyboard_buttons.append([
             InlineKeyboardButton(
                 text="⏳ Hozircha qismlar yuklanmagan",
-                callback_data="no_episodes"
+                callback_data="no_episodes",
+                icon_custom_emoji_id=get_emoji_id("kutish")
             )
         ])
 
@@ -93,7 +105,8 @@ def get_anime_episodes_keyboard(
     keyboard_buttons.append([
         InlineKeyboardButton(
             text="📢 Bizning kanalimiz",
-            url=config.CHANNEL_URL
+            url=config.CHANNEL_URL,
+            icon_custom_emoji_id=get_emoji_id("btn_channel")
         )
     ])
 
@@ -102,11 +115,13 @@ def get_anime_episodes_keyboard(
         keyboard_buttons.append([
             InlineKeyboardButton(
                 text="📢 Kanalga post chiqarish",
-                callback_data=f"admin_post_{anime.code}"
+                callback_data=f"admin_post_{anime.code}",
+                icon_custom_emoji_id=get_emoji_id("btn_channel")
             ),
             InlineKeyboardButton(
                 text="⚡️ Ommaviy qism yuklash",
-                callback_data=f"admin_batch_{anime.code}"
+                callback_data=f"admin_batch_{anime.code}",
+                icon_custom_emoji_id=get_emoji_id("btn_save")
             )
         ])
 
@@ -127,7 +142,8 @@ def get_anime_search_keyboard(animes: Sequence[Anime]) -> InlineKeyboardMarkup:
         keyboard_buttons.append([
             InlineKeyboardButton(
                 text=btn_text,
-                callback_data=f"anime_code_{anime.code}"
+                callback_data=f"anime_code_{anime.code}",
+                icon_custom_emoji_id=get_emoji_id("btn_play")
             )
         ])
 
@@ -141,13 +157,15 @@ def get_admin_post_confirm_keyboard(anime_code: int) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="✅ Ha, kanalga chiqarilsin",
-                    callback_data=f"confirm_post_{anime_code}"
+                    callback_data=f"confirm_post_{anime_code}",
+                    icon_custom_emoji_id=get_emoji_id("btn_check")
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="❌ Bekor qilish",
-                    callback_data="cancel_admin_action"
+                    callback_data="cancel_admin_action",
+                    icon_custom_emoji_id=get_emoji_id("btn_cancel")
                 )
             ]
         ]
@@ -161,17 +179,20 @@ def get_anime_quick_save_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="⚡️ Saqlash va qism yuklash",
-                    callback_data="admin_quick_save"
+                    callback_data="admin_quick_save",
+                    icon_custom_emoji_id=get_emoji_id("btn_save")
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="✏️ Nomni o'zgartirish",
-                    callback_data="admin_edit_title"
+                    callback_data="admin_edit_title",
+                    icon_custom_emoji_id=get_emoji_id("btn_edit")
                 ),
                 InlineKeyboardButton(
                     text="❌ Bekor qilish",
-                    callback_data="cancel_admin_action"
+                    callback_data="cancel_admin_action",
+                    icon_custom_emoji_id=get_emoji_id("btn_cancel")
                 )
             ]
         ]
@@ -184,8 +205,10 @@ def get_cancel_inline() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="❌ Bekor qilish",
-                    callback_data="cancel_action"
+                    callback_data="cancel_action",
+                    icon_custom_emoji_id=get_emoji_id("btn_cancel")
                 )
             ]
         ]
     )
+

@@ -1,29 +1,30 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from config import get_emoji_id
 
 
 def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Asosiy foydalanuvchi menyusi"""
     keyboard = [
         [
-            KeyboardButton(text="🔍 Anime qidirish"),
-            KeyboardButton(text="🔢 Kod orqali qidirish"),
+            KeyboardButton(text="🔍 Anime qidirish", icon_custom_emoji_id=get_emoji_id("btn_search")),
+            KeyboardButton(text="🔢 Kod orqali qidirish", icon_custom_emoji_id=get_emoji_id("btn_code")),
         ],
         [
-            KeyboardButton(text="📸 Rasm orqali qidirish"),
-            KeyboardButton(text="🎲 Tasodifiy anime"),
+            KeyboardButton(text="📸 Rasm orqali qidirish", icon_custom_emoji_id=get_emoji_id("btn_photo")),
+            KeyboardButton(text="🎲 Tasodifiy anime", icon_custom_emoji_id=get_emoji_id("btn_random")),
         ],
         [
-            KeyboardButton(text="🗂 Barcha animelar"),
-            KeyboardButton(text="🆕 Yangi animelar"),
+            KeyboardButton(text="🗂 Barcha animelar", icon_custom_emoji_id=get_emoji_id("btn_all")),
+            KeyboardButton(text="🆕 Yangi animelar", icon_custom_emoji_id=get_emoji_id("btn_new")),
         ],
         [
-            KeyboardButton(text="📢 Bizning kanal"),
-            KeyboardButton(text="ℹ️ Bot haqida"),
+            KeyboardButton(text="📢 Bizning kanal", icon_custom_emoji_id=get_emoji_id("btn_channel")),
+            KeyboardButton(text="ℹ️ Bot haqida", icon_custom_emoji_id=get_emoji_id("btn_info")),
         ]
     ]
 
     if is_admin:
-        keyboard.append([KeyboardButton(text="⚙️ Admin Panel")])
+        keyboard.append([KeyboardButton(text="⚙️ Admin Panel", icon_custom_emoji_id=get_emoji_id("btn_admin"))])
 
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
@@ -36,24 +37,24 @@ def get_admin_menu() -> ReplyKeyboardMarkup:
     """Admin boshqaruv menyusi"""
     keyboard = [
         [
-            KeyboardButton(text="➕ Yangi anime qo'shish"),
-            KeyboardButton(text="⚡️ Ommaviy qism yuklash"),
+            KeyboardButton(text="➕ Yangi anime qo'shish", icon_custom_emoji_id=get_emoji_id("btn_new")),
+            KeyboardButton(text="⚡️ Ommaviy qism yuklash", icon_custom_emoji_id=get_emoji_id("btn_save")),
         ],
         [
-            KeyboardButton(text="🎬 Bitta qism yuklash"),
-            KeyboardButton(text="📢 Kanalga post chiqarish"),
+            KeyboardButton(text="🎬 Bitta qism yuklash", icon_custom_emoji_id=get_emoji_id("btn_play")),
+            KeyboardButton(text="📢 Kanalga post chiqarish", icon_custom_emoji_id=get_emoji_id("btn_channel")),
         ],
         [
-            KeyboardButton(text="📋 Kanal katalog posti"),
-            KeyboardButton(text="📊 Statistika"),
+            KeyboardButton(text="📋 Kanal katalog posti", icon_custom_emoji_id=get_emoji_id("btn_all")),
+            KeyboardButton(text="📊 Statistika", icon_custom_emoji_id=get_emoji_id("btn_info")),
         ],
         [
-            KeyboardButton(text="✉️ Xabar yuborish (Broadcast)"),
-            KeyboardButton(text="💾 Zaxira (Backup)"),
+            KeyboardButton(text="✉️ Xabar yuborish (Broadcast)", icon_custom_emoji_id=get_emoji_id("btn_channel")),
+            KeyboardButton(text="💾 Zaxira (Backup)", icon_custom_emoji_id=get_emoji_id("btn_save")),
         ],
         [
-            KeyboardButton(text="🗑 Animeni o'chirish"),
-            KeyboardButton(text="🔙 Bosh menyuga qaytish")
+            KeyboardButton(text="🗑 Animeni o'chirish", icon_custom_emoji_id=get_emoji_id("btn_cancel")),
+            KeyboardButton(text="🔙 Bosh menyuga qaytish", icon_custom_emoji_id=get_emoji_id("btn_prev"))
         ]
     ]
     return ReplyKeyboardMarkup(
@@ -67,8 +68,8 @@ def get_batch_upload_menu() -> ReplyKeyboardMarkup:
     """Ommaviy yuklash vaqtidagi tugmalar"""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🏁 Ommaviy yuklashni tugatish")],
-            [KeyboardButton(text="❌ Bekor qilish")]
+            [KeyboardButton(text="🏁 Ommaviy yuklashni tugatish", icon_custom_emoji_id=get_emoji_id("btn_check"))],
+            [KeyboardButton(text="❌ Bekor qilish", icon_custom_emoji_id=get_emoji_id("btn_cancel"))]
         ],
         resize_keyboard=True
     )
@@ -77,6 +78,7 @@ def get_batch_upload_menu() -> ReplyKeyboardMarkup:
 def get_cancel_reply() -> ReplyKeyboardMarkup:
     """Bekor qilish tugmasi"""
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="❌ Bekor qilish")]],
+        keyboard=[[KeyboardButton(text="❌ Bekor qilish", icon_custom_emoji_id=get_emoji_id("btn_cancel"))]],
         resize_keyboard=True
     )
+

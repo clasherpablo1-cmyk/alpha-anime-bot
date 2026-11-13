@@ -1,6 +1,236 @@
-from typing import List, Set
+import os
+from typing import List, Set, Optional, Dict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
+
+
+# ==============================================================================
+# TELEGRAM PREMIUM CUSTOM EMOJILAR (STIKER-EMOJILAR) SOZLAMALARI
+# ==============================================================================
+# Telegram Premium stiker to'plamlaridagi emoji_id larni kiritish uchun tayyor joylar.
+# Masalan: "sarlavha": "5368324170671202286"
+# Agar bo'sh ("") yoki placeholder bo'lsa, xavfsiz ravishda fallback emoji ishlatiladi.
+# Shuningdek .env fayli orqali ham berish mumkin: EMOJI_SARLAVHA="5368324170671202286"
+# ==============================================================================
+
+CUSTOM_EMOJIS: Dict[str, str] = {
+    # 1. Post va xabar elementlari
+    "sarlavha": "",       # Anime sarlavhasi (Fallback: 🍥)
+    "reyting": "",        # Reyting (Fallback: ⚛️)
+    "qismlar": "",        # Qismlar soni (Fallback: 🗃)
+    "ovoz": "",           # Ovoz / Dublyaj (Fallback: 🎙)
+    "sifat": "",          # Sifati (Fallback: 🎼)
+    "janr": "",           # Janrlar (Fallback: 🎭)
+    "kod": "",            # Anime kodi (Fallback: 🔑)
+    "tavsif": "",         # Tavsif / Mazmuni (Fallback: 📖)
+    "qidiruv": "",        # Qidiruv (Fallback: 🔍)
+    "holat": "",          # Holati (Fallback: 📌)
+    "korishlar": "",      # Ko'rishlar soni (Fallback: 👁)
+    "katalog": "",        # Katalog mundarijasi (Fallback: 🎌)
+    "video": "",          # Video / Qism (Fallback: 🎬)
+    "yuklash": "",        # Yuklash (Fallback: 📥)
+    "kanal": "",          # Kanal (Fallback: 📢)
+    "bot": "",            # Bot (Fallback: 🤖)
+    "yangi": "",          # Yangi animelar (Fallback: 🆕)
+    "rasm": "",           # Rasm qidiruvi (Fallback: 📸)
+    "tasodifiy": "",      # Tasodifiy anime (Fallback: 🎲)
+    "admin": "",          # Admin boshqaruvi (Fallback: ⚙️)
+    "muvaffaqiyat": "",   # Muvaffaqiyat / Tasdiq (Fallback: ✅)
+    "xato": "",           # Xato / Bekor qilish (Fallback: ❌)
+    "ogohlantirish": "",  # Ogohlantirish (Fallback: ⚠️)
+    "kutish": "",         # Jarayon / Kutish (Fallback: ⏳)
+    "chaqmoq": "",        # Tezkor chaqmoq (Fallback: ⚡️)
+    "olov": "",           # Olov (Fallback: 🔥)
+    "yulduz": "",         # Yulduz (Fallback: ⭐)
+    "popcorn": "",        # Popcorn (Fallback: 🍿)
+    "nuqta": "",          # Ro'yxat nuqtasi (Fallback: 🔹)
+    "pastga": "",         # Pastga ko'rsatgich (Fallback: 👇)
+    "tabrik": "",         # Tabriklash (Fallback: 🎉)
+    "salom": "",          # Salomlashish (Fallback: 👋)
+    "qahramon": "",       # Personaj / Qahramon (Fallback: 👤)
+    "vaqt": "",           # Vaqt / Taymer (Fallback: ⏱)
+    "statistika": "",     # Statistika (Fallback: 📊)
+    "til_uz": "",         # O'zbek tili bayrog'i (Fallback: 🇺🇿)
+    "til_en": "",         # Ingliz tili bayrog'i (Fallback: 🇬🇧)
+    "til_jp": "",         # Yapon tili bayrog'i (Fallback: 🇯🇵)
+    "maslahat": "",       # Maslahat stikeri (Fallback: 💡)
+
+    # 2. Tugmalar uchun maxsus emoji_id lar (Inline va Reply Keyboard icon_custom_emoji_id)
+    "btn_download": "",   # Yuklab olish tugmasi (Fallback: 📥)
+    "btn_channel": "",    # Kanalimiz tugmasi (Fallback: 📢)
+    "btn_search": "",     # Anime qidirish tugmasi (Fallback: 🔍)
+    "btn_code": "",       # Kod orqali qidirish tugmasi (Fallback: 🔢)
+    "btn_photo": "",      # Rasm orqali qidirish tugmasi (Fallback: 📸)
+    "btn_random": "",     # Tasodifiy anime tugmasi (Fallback: 🎲)
+    "btn_all": "",        # Barcha animelar tugmasi (Fallback: 🗂)
+    "btn_new": "",        # Yangi animelar tugmasi (Fallback: 🆕)
+    "btn_info": "",       # Bot haqida tugmasi (Fallback: ℹ️)
+    "btn_admin": "",      # Admin panel tugmasi (Fallback: ⚙️)
+    "btn_check": "",      # Tekshirish tugmasi (Fallback: ✅)
+    "btn_cancel": "",     # Bekor qilish tugmasi (Fallback: ❌)
+    "btn_play": "",       # Qism ijro tugmasi (Fallback: ▶️)
+    "btn_prev": "",       # Oldingi sahifa tugmasi (Fallback: ⬅️)
+    "btn_next": "",       # Keyingi sahifa tugmasi (Fallback: ➡️)
+    "btn_save": "",       # Saqlash tugmasi (Fallback: ⚡️)
+    "btn_edit": "",       # Tahrirlash tugmasi (Fallback: ✏️)
+}
+
+# Standart zaxira emojilar (Fallback emojis)
+DEFAULT_FALLBACKS: Dict[str, str] = {
+    "sarlavha": "🍥",
+    "reyting": "⚛️",
+    "qismlar": "🗃",
+    "ovoz": "🎙",
+    "sifat": "🎼",
+    "janr": "🎭",
+    "kod": "🔑",
+    "tavsif": "📖",
+    "qidiruv": "🔍",
+    "holat": "📌",
+    "korishlar": "👁",
+    "katalog": "🎌",
+    "video": "🎬",
+    "yuklash": "📥",
+    "kanal": "📢",
+    "bot": "🤖",
+    "yangi": "🆕",
+    "rasm": "📸",
+    "tasodifiy": "🎲",
+    "admin": "⚙️",
+    "muvaffaqiyat": "✅",
+    "xato": "❌",
+    "ogohlantirish": "⚠️",
+    "kutish": "⏳",
+    "chaqmoq": "⚡️",
+    "olov": "🔥",
+    "yulduz": "⭐",
+    "popcorn": "🍿",
+    "nuqta": "🔹",
+    "pastga": "👇",
+    "tabrik": "🎉",
+    "salom": "👋",
+    "qahramon": "👤",
+    "vaqt": "⏱",
+    "statistika": "📊",
+    "til_uz": "🇺🇿",
+    "til_en": "🇬🇧",
+    "til_jp": "🇯🇵",
+    "maslahat": "💡",
+
+    # Tugmalar
+    "btn_download": "📥",
+    "btn_channel": "📢",
+    "btn_search": "🔍",
+    "btn_code": "🔢",
+    "btn_photo": "📸",
+    "btn_random": "🎲",
+    "btn_all": "🗂",
+    "btn_new": "🆕",
+    "btn_info": "ℹ️",
+    "btn_admin": "⚙️",
+    "btn_check": "✅",
+    "btn_cancel": "❌",
+    "btn_play": "▶️",
+    "btn_prev": "⬅️",
+    "btn_next": "➡️",
+    "btn_save": "⚡️",
+    "btn_edit": "✏️",
+}
+
+# Inglizcha va boshqa alternativ kalit so'zlar uchun aliaslar
+_EMOJI_ALIASES: Dict[str, str] = {
+    "title": "sarlavha",
+    "rating": "reyting",
+    "episodes": "qismlar",
+    "voice": "ovoz",
+    "audio": "ovoz",
+    "quality": "sifat",
+    "genre": "janr",
+    "genres": "janr",
+    "code": "kod",
+    "description": "tavsif",
+    "search": "qidiruv",
+    "status": "holat",
+    "views": "korishlar",
+    "catalog": "katalog",
+    "download": "yuklash",
+    "channel": "kanal",
+    "photo": "rasm",
+    "image": "rasm",
+    "random": "tasodifiy",
+    "new": "yangi",
+    "settings": "admin",
+    "success": "muvaffaqiyat",
+    "check": "muvaffaqiyat",
+    "error": "xato",
+    "cancel": "xato",
+    "warning": "ogohlantirish",
+    "wait": "kutish",
+    "fire": "olov",
+    "lightning": "chaqmoq",
+    "star": "yulduz",
+    "dot": "nuqta",
+    "down": "pastga",
+    "congrats": "tabrik",
+    "wave": "salom",
+    "character": "qahramon",
+    "time": "vaqt",
+    "stats": "statistika",
+    "play": "btn_play",
+    "prev": "btn_prev",
+    "next": "btn_next",
+    "save": "btn_save",
+    "edit": "btn_edit",
+}
+
+
+def is_valid_emoji_id(val: Optional[str]) -> bool:
+    """Emoji ID mavjud, bo'sh emas va placeholder emasligini tekshirish"""
+    if val is None or not isinstance(val, (str, int)):
+        return False
+    s = str(val).strip()
+    if not s or s in ("0", "None", "null", ""):
+        return False
+    upper = s.upper()
+    if "YOUR_" in upper or "PLACEHOLDER" in upper or "EMOJI_ID" in upper:
+        return False
+    return True
+
+
+def get_custom_emoji(key: str, fallback: str = "") -> str:
+    """
+    Markazlashgan Premium Custom Emoji helper funksiyasi:
+    Agar ko'rsatilgan 'key' uchun CUSTOM_EMOJIS ichida haqiqiy emoji_id mavjud bo'lsa:
+        <tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>
+    Aks holda:
+        fallback belgisi (yoki DEFAULT_FALLBACKS dagi standart belgi)
+    """
+    resolved_key = _EMOJI_ALIASES.get(key, key)
+    fb = fallback if fallback else DEFAULT_FALLBACKS.get(resolved_key, DEFAULT_FALLBACKS.get(key, ""))
+    raw_val = CUSTOM_EMOJIS.get(resolved_key, CUSTOM_EMOJIS.get(key))
+    if is_valid_emoji_id(raw_val):
+        emoji_id = str(raw_val).strip()
+        return f'<tg-emoji emoji-id="{emoji_id}">{fb}</tg-emoji>'
+    return fb
+
+
+def get_emoji_id(key: str) -> Optional[str]:
+    """
+    Tugmalar (icon_custom_emoji_id) uchun sof emoji_id ni olish.
+    Agar kiritilmagan yoki placeholder bo'lsa, None qaytaradi.
+    """
+    resolved_key = _EMOJI_ALIASES.get(key, key)
+    raw_val = CUSTOM_EMOJIS.get(resolved_key, CUSTOM_EMOJIS.get(key))
+    if is_valid_emoji_id(raw_val):
+        return str(raw_val).strip()
+    return None
+
+
+# Environment o'zgaruvchilari orqali yuklash (EMOJI_SARLAVHA="...")
+for _k in list(CUSTOM_EMOJIS.keys()):
+    _env_val = os.getenv(f"EMOJI_{_k.upper()}") or os.getenv(f"CUSTOM_EMOJI_{_k.upper()}")
+    if _env_val:
+        CUSTOM_EMOJIS[_k] = _env_val.strip()
 
 
 class Settings(BaseSettings):
@@ -52,3 +282,4 @@ class Settings(BaseSettings):
 
 
 config = Settings()
+

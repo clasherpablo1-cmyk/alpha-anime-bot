@@ -10,7 +10,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-from config import config
+from config import config, get_custom_emoji, get_emoji_id
 from database.db import db
 from database.models import Anime
 from services.anilist import anilist_service
@@ -82,7 +82,7 @@ async def handle_admin_panel(message: Message, state: FSMContext) -> None:
 
     await state.clear()
     await message.answer(
-        "🛠 <b>Admin Boshqaruv Paneliga xush kelibsiz!</b>\n\n"
+        f"{get_custom_emoji('admin', '🛠')} <b>Admin Boshqaruv Paneliga xush kelibsiz!</b>\n\n"
         "Quyidagi bo'limlardan birini tanlang:",
         reply_markup=get_admin_menu(),
         parse_mode="HTML"
@@ -96,7 +96,8 @@ async def handle_back_to_main(message: Message, state: FSMContext) -> None:
     is_admin = await db.is_admin(user.id) if user else False
     await message.answer(
         "Bosh menyuga qaytdingiz.",
-        reply_markup=get_main_menu(is_admin=is_admin)
+        reply_markup=get_main_menu(is_admin=is_admin),
+        parse_mode="HTML"
     )
 
 
@@ -106,9 +107,17 @@ async def handle_admin_cancel(message: Message, state: FSMContext) -> None:
     user = message.from_user
     is_admin = await db.is_admin(user.id) if user else False
     if is_admin:
-        await message.answer("Amal bekor qilindi.", reply_markup=get_admin_menu())
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Amal bekor qilindi.",
+            reply_markup=get_admin_menu(),
+            parse_mode="HTML"
+        )
     else:
-        await message.answer("Amal bekor qilindi.", reply_markup=get_main_menu(is_admin=False))
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Amal bekor qilindi.",
+            reply_markup=get_main_menu(is_admin=False),
+            parse_mode="HTML"
+        )
 
 
 # ------------------ STATISTIKA ------------------
@@ -119,16 +128,16 @@ async def handle_stats(message: Message) -> None:
 
     stats = await db.get_statistics()
     text = (
-        "📊 <b>LOYIHA STATISTIKASI:</b>\n"
+        f"{get_custom_emoji('statistika', '📊')} <b>LOYIHA STATISTIKASI:</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        f"👥 <b>Foydalanuvchilar:</b> {stats['users_count']} ta\n"
-        f"🎬 <b>Animelar:</b> {stats['animes_count']} ta\n"
-        f"🎞 <b>Yuklangan qismlar:</b> {stats['episodes_count']} ta\n"
-        f"👁 <b>Umumiy ko'rishlar:</b> {stats['total_views']}\n"
-        f"📥 <b>Yuklab olingan videolar:</b> {stats['total_downloads']}\n"
+        f"{get_custom_emoji('qahramon', '👥')} <b>Foydalanuvchilar:</b> {stats['users_count']} ta\n"
+        f"{get_custom_emoji('video', '🎬')} <b>Animelar:</b> {stats['animes_count']} ta\n"
+        f"{get_custom_emoji('video', '🎞')} <b>Yuklangan qismlar:</b> {stats['episodes_count']} ta\n"
+        f"{get_custom_emoji('korishlar', '👁')} <b>Umumiy ko'rishlar:</b> {stats['total_views']}\n"
+        f"{get_custom_emoji('yuklash', '📥')} <b>Yuklab olingan videolar:</b> {stats['total_downloads']}\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        f"📢 Kanal: {config.CHANNEL_USERNAME}\n"
-        f"🤖 Bot: @{config.BOT_USERNAME}"
+        f"{get_custom_emoji('kanal', '📢')} Kanal: {config.CHANNEL_USERNAME}\n"
+        f"{get_custom_emoji('bot', '🤖')} Bot: @{config.BOT_USERNAME}"
     )
     await message.answer(text, parse_mode="HTML")
 
@@ -244,19 +253,25 @@ async def handle_manual_backup(message: Message) -> None:
         if ok:
             stats = await db.get_statistics()
             await status_msg.edit_text(
-                "✅ <b>Baza muvaffaqiyatli zaxiralandi va @acacafagag kanaliga yetkazildi!</b>\n\n"
-                f"🎬 <b>Animelar:</b> {stats['animes_count']} ta\n"
-                f"🎞 <b>Qismlar:</b> {stats['episodes_count']} ta (HD)\n"
-                f"👥 <b>Foydalanuvchilar:</b> {stats['users_count']} ta\n"
-                f"📥 <b>Yuklanishlar:</b> {stats['total_downloads']} ta\n\n"
+                f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>Baza muvaffaqiyatli zaxiralandi va @acacafagag kanaliga yetkazildi!</b>\n\n"
+                f"{get_custom_emoji('video', '🎬')} <b>Animelar:</b> {stats['animes_count']} ta\n"
+                f"{get_custom_emoji('video', '🎞')} <b>Qismlar:</b> {stats['episodes_count']} ta (HD)\n"
+                f"{get_custom_emoji('qahramon', '👥')} <b>Foydalanuvchilar:</b> {stats['users_count']} ta\n"
+                f"{get_custom_emoji('yuklash', '📥')} <b>Yuklanishlar:</b> {stats['total_downloads']} ta\n\n"
                 "🧹 <i>Eski zaxiralar avtomatik tozalandi. Kanalda eng so'nggi arxiv saqlandi.</i>",
                 parse_mode="HTML"
             )
         else:
-            await status_msg.edit_text("❌ Zaxirani yuborishda xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
+            await status_msg.edit_text(
+                f"{get_custom_emoji('xato', '❌')} Zaxirani yuborishda xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.",
+                parse_mode="HTML"
+            )
     except Exception as e:
         logger.error(f"Manual backup xatosi: {e}")
-        await status_msg.edit_text(f"❌ Xatolik yuz berdi: {e}")
+        await status_msg.edit_text(
+            f"{get_custom_emoji('xato', '❌')} Xatolik yuz berdi: {e}",
+            parse_mode="HTML"
+        )
 
 
 # ------------------ TIKLASH (RESTORE) ------------------
@@ -289,7 +304,7 @@ async def handle_restore_backup(message: Message) -> None:
         await message.answer("❌ Faqat <code>.zip</code> formatidagi zaxira arxivini tiklash mumkin!", parse_mode="HTML")
         return
 
-    status_msg = await message.answer("⏳ <b>Arxiv yuklab olinmoqda va baza tiklanmoqda...</b>", parse_mode="HTML")
+    status_msg = await message.answer(f"{get_custom_emoji('kutish', '⏳')} <b>Arxiv yuklab olinmoqda va baza tiklanmoqda...</b>", parse_mode="HTML")
     try:
         file_io = io.BytesIO()
         await message.bot.download(doc.file_id, destination=file_io)
@@ -298,19 +313,19 @@ async def handle_restore_backup(message: Message) -> None:
         ok, text, stats = await backup_service.restore_from_zip_bytes(zip_bytes)
         if ok:
             await status_msg.edit_text(
-                f"✅ <b>Baza muvaffaqiyatli tiklandi!</b>\n\n"
-                f"🎬 <b>Animelar:</b> {stats.get('animes_count', 0)} ta\n"
-                f"🎞 <b>Qismlar:</b> {stats.get('episodes_count', 0)} ta\n"
-                f"👥 <b>Foydalanuvchilar:</b> {stats.get('users_count', 0)} ta\n"
-                f"📥 <b>Yuklanishlar:</b> {stats.get('total_downloads', 0)} ta\n\n"
+                f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>Baza muvaffaqiyatli tiklandi!</b>\n\n"
+                f"{get_custom_emoji('video', '🎬')} <b>Animelar:</b> {stats.get('animes_count', 0)} ta\n"
+                f"{get_custom_emoji('video', '🎞')} <b>Qismlar:</b> {stats.get('episodes_count', 0)} ta\n"
+                f"{get_custom_emoji('qahramon', '👥')} <b>Foydalanuvchilar:</b> {stats.get('users_count', 0)} ta\n"
+                f"{get_custom_emoji('yuklash', '📥')} <b>Yuklanishlar:</b> {stats.get('total_downloads', 0)} ta\n\n"
                 "🚀 <i>Barcha ma'lumotlar to'liq o'rnatildi va xizmat davom etmoqda.</i>",
                 parse_mode="HTML"
             )
         else:
-            await status_msg.edit_text(f"❌ Tiklashda xatolik: {text}", parse_mode="HTML")
+            await status_msg.edit_text(f"{get_custom_emoji('xato', '❌')} Tiklashda xatolik: {text}", parse_mode="HTML")
     except Exception as e:
         logger.error(f"Restore handler xatosi: {e}", exc_info=True)
-        await status_msg.edit_text(f"❌ Xatolik yuz berdi: {e}", parse_mode="HTML")
+        await status_msg.edit_text(f"{get_custom_emoji('xato', '❌')} Xatolik yuz berdi: {e}", parse_mode="HTML")
 
 
 # ------------------ 1. YANGI ANIME QO'SHISH (WIZARD) ------------------
@@ -422,13 +437,15 @@ async def process_anime_title(message: Message, state: FSMContext) -> None:
         logger.error(f"Anime qidirishda xatolik: {e}", exc_info=True)
         try:
             await status_msg.edit_text(
-                "❌ Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
-                reply_markup=get_cancel_inline()
+                f"{get_custom_emoji('xato', '❌')} Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
+                reply_markup=get_cancel_inline(),
+                parse_mode="HTML"
             )
         except Exception:
             await message.answer(
-                "❌ Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
-                reply_markup=get_cancel_reply()
+                f"{get_custom_emoji('xato', '❌')} Qidirishda xatolik yuz berdi. Iltimos, animening nomini qaytadan yuboring:",
+                reply_markup=get_cancel_reply(),
+                parse_mode="HTML"
             )
 
 
@@ -476,7 +493,7 @@ async def process_anime_title_uz(message: Message, state: FSMContext) -> None:
     suggested_code = data.get("suggested_code", 1)
     await state.set_state(AddAnimeStates.waiting_for_code)
     await message.answer(
-        f"🔢 Anime uchun unikal raqamli kodni kiriting:\n\n"
+        f"{get_custom_emoji('kod', '🔢')} Anime uchun unikal raqamli kodni kiriting:\n\n"
         f"<i>Tavsiya etilayotgan kod: <code>{suggested_code}</code></i>\n"
         f"(Shu kodni qoldirish uchun «.» nuqta yuboring yoki o'zingiz istagan sonni kiriting)",
         parse_mode="HTML"
@@ -496,13 +513,17 @@ async def process_anime_code(message: Message, state: FSMContext) -> None:
     elif clean_text.isdigit():
         code = int(clean_text)
     else:
-        await message.answer("❌ Iltimos, faqat raqam kiriting!")
+        await message.answer(f"{get_custom_emoji('xato', '❌')} Iltimos, faqat raqam kiriting!", parse_mode="HTML")
         return
 
     # Kod bandligini tekshirish
     existing = await db.get_anime_by_code(code)
     if existing:
-        await message.answer(f"❌ <b>#{code}</b> kodi allaqachon «{existing.title_uz}» animesiga berilgan! Boshqa kod kiriting:")
+        safe_existing = html.escape(existing.title_uz, quote=False)
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} <b>#{code}</b> kodi allaqachon «{safe_existing}» animesiga berilgan! Boshqa kod kiriting:",
+            parse_mode="HTML"
+        )
         return
 
     await state.update_data(code=code)
@@ -511,7 +532,7 @@ async def process_anime_code(message: Message, state: FSMContext) -> None:
     if not data.get("poster_url"):
         await state.set_state(AddAnimeStates.waiting_for_custom_poster)
         await message.answer(
-            "🖼 Endi anime uchun poster (rasm) yuboring:\n"
+            f"{get_custom_emoji('rasm', '🖼')} Endi anime uchun poster (rasm) yuboring:\n"
             "<i>(Rasm yuborishni o'tkazib yuborish uchun «.» nuqta yozing)</i>",
             parse_mode="HTML"
         )
@@ -528,7 +549,10 @@ async def process_custom_poster(message: Message, state: FSMContext) -> None:
     elif message.text == ".":
         await state.update_data(poster_url=None)
     else:
-        await message.answer("Iltimos, rasm yuboring yoki «.» yozing.")
+        await message.answer(
+            f"{get_custom_emoji('rasm', '🖼')} Iltimos, rasm yuboring yoki «.» yozing.",
+            parse_mode="HTML"
+        )
         return
 
     await finalize_add_anime(message, state)
@@ -563,11 +587,11 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
     safe_genres = html.escape(anime.genres or "Anime", quote=False)
 
     confirm_text = (
-        f"🎉 <b>Anime muvaffaqiyatli saqlandi!</b>\n\n"
-        f"🎬 <b>Nomi:</b> {safe_title_uz}\n"
-        f"🔑 <b>Kodi:</b> <code>#{anime.code}</code>\n"
+        f"{get_custom_emoji('tabrik', '🎉')} <b>Anime muvaffaqiyatli saqlandi!</b>\n\n"
+        f"{get_custom_emoji('video', '🎬')} <b>Nomi:</b> {safe_title_uz}\n"
+        f"{get_custom_emoji('kod', '🔑')} <b>Kodi:</b> <code>#{anime.code}</code>\n"
         f"📅 <b>Yili:</b> {anime.year}\n"
-        f"🎭 <b>Janr:</b> {safe_genres}\n\n"
+        f"{get_custom_emoji('janr', '🎭')} <b>Janr:</b> {safe_genres}\n\n"
         f"Endi darhol qismlarni yuklash uchun quyidagi tugmani bosing:"
     )
 
@@ -576,13 +600,15 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
             [
                 InlineKeyboardButton(
                     text="⚡️ Qismlarni yuklash (Ommaviy)",
-                    callback_data=f"admin_batch_{anime.code}"
+                    callback_data=f"admin_batch_{anime.code}",
+                    icon_custom_emoji_id=get_emoji_id("btn_save")
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="📢 Kanalga post chiqarish",
-                    callback_data=f"admin_post_{anime.code}"
+                    callback_data=f"admin_post_{anime.code}",
+                    icon_custom_emoji_id=get_emoji_id("btn_channel")
                 )
             ]
         ]
@@ -641,7 +667,7 @@ async def start_batch_upload(message: Message, state: FSMContext) -> None:
 
     await state.set_state(BatchUploadStates.waiting_for_anime_code)
     await message.answer(
-        "⚡️ <b>Ommaviy Qism Yuklash Rejimi (Batch Mode):</b>\n\n"
+        f"{get_custom_emoji('chaqmoq', '⚡️')} <b>Ommaviy Qism Yuklash Rejimi (Batch Mode):</b>\n\n"
         "Qaysi animega qismlarni ommaviy yuklamoqchisiz? Anime kodini kiriting:\n"
         "<i>(Masalan: Naruto kodi yoki 1, 2...)</i>",
         reply_markup=get_cancel_reply(),
@@ -666,13 +692,19 @@ async def handle_callback_admin_batch(callback: CallbackQuery, state: FSMContext
 @admin_router.message(BatchUploadStates.waiting_for_anime_code)
 async def process_batch_code(message: Message, state: FSMContext) -> None:
     if not message.text or not message.text.isdigit():
-        await message.answer("❌ Iltimos, raqamli anime kodini kiriting!")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Iltimos, raqamli anime kodini kiriting!",
+            parse_mode="HTML"
+        )
         return
 
     code = int(message.text.strip())
     anime = await db.get_anime_by_code(code)
     if not anime:
-        await message.answer(f"❌ #{code} kodli anime topilmadi!")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} #{code} kodli anime topilmadi!",
+            parse_mode="HTML"
+        )
         return
 
     await enter_batch_upload_mode(message, anime, state)
@@ -841,13 +873,19 @@ async def handle_callback_add_ep(callback: CallbackQuery, state: FSMContext) -> 
 @admin_router.message(AddEpisodeStates.waiting_for_anime_code)
 async def process_ep_anime_code(message: Message, state: FSMContext) -> None:
     if not message.text or not message.text.isdigit():
-        await message.answer("❌ Iltimos, raqamli anime kodini kiriting!")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Iltimos, raqamli anime kodini kiriting!",
+            parse_mode="HTML"
+        )
         return
 
     code = int(message.text.strip())
     anime = await db.get_anime_by_code(code)
     if not anime:
-        await message.answer(f"❌ <b>#{code}</b> kodli anime topilmadi! Qaytadan kiriting:")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} <b>#{code}</b> kodli anime topilmadi! Qaytadan kiriting:",
+            parse_mode="HTML"
+        )
         return
 
     next_ep = len(anime.episodes) + 1
@@ -855,7 +893,7 @@ async def process_ep_anime_code(message: Message, state: FSMContext) -> None:
     await state.set_state(AddEpisodeStates.waiting_for_ep_number)
     safe_title = html.escape(anime.title_uz, quote=False)
     await message.answer(
-        f"🎬 <b>{safe_title}</b> tanlandi.\n\n"
+        f"{get_custom_emoji('video', '🎬')} <b>{safe_title}</b> tanlandi.\n\n"
         f"Nechanchi qismni yuklamoqchisiz?\n"
         f"<i>Kutilayotgan qism: <b>{next_ep}</b></i> (Shunday qoldirish uchun «.» yuboring)",
         reply_markup=get_cancel_reply(),
@@ -876,7 +914,11 @@ async def process_ep_number(message: Message, state: FSMContext) -> None:
     elif text.isdigit():
         ep_num = int(text)
     else:
-        await message.answer("❌ Faqat raqam kiriting!", reply_markup=get_cancel_reply())
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Faqat raqam kiriting!",
+            reply_markup=get_cancel_reply(),
+            parse_mode="HTML"
+        )
         return
 
     await state.update_data(episode_number=ep_num)
@@ -903,8 +945,9 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
     )
     if not (is_video or is_doc_video):
         await message.answer(
-            "⚠️ Iltimos, video faylni yuboring (mp4, mkv va h.k.) yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing.",
-            reply_markup=get_cancel_reply()
+            f"{get_custom_emoji('ogohlantirish', '⚠️')} Iltimos, video faylni yuboring (mp4, mkv va h.k.) yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing.",
+            reply_markup=get_cancel_reply(),
+            parse_mode="HTML"
         )
         return
 
@@ -932,8 +975,8 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
 
     safe_saved_title = html.escape(str(data.get('anime_title', 'Anime')), quote=False)
     await message.answer(
-        f"✅ <b>{safe_saved_title}</b> animening <b>{ep_num}-qismi</b> muvaffaqiyatli saqlandi!\n"
-        f"Foydalanuvchilar endi ushbu qismni bot orqali ko'ra olishadi.",
+        f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>{safe_saved_title}</b> animening <b>{ep_num}-qismi</b> muvaffaqiyatli saqlandi!\n"
+        "Foydalanuvchilar endi ushbu qismni bot orqali ko'ra olishadi.",
         reply_markup=get_admin_menu(),
         parse_mode="HTML"
     )
@@ -942,8 +985,9 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
 @admin_router.message(AddEpisodeStates.waiting_for_video)
 async def process_ep_video_fallback(message: Message) -> None:
     await message.answer(
-        "⚠️ Iltimos, video faylni yuboring (mp4, mkv va h.k.) yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing.",
-        reply_markup=get_cancel_reply()
+        f"{get_custom_emoji('ogohlantirish', '⚠️')} Iltimos, video faylni yuboring (mp4, mkv va h.k.) yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing.",
+        reply_markup=get_cancel_reply(),
+        parse_mode="HTML"
     )
 
 
@@ -974,7 +1018,10 @@ async def handle_callback_admin_post(callback: CallbackQuery, state: FSMContext)
 @admin_router.message(PostToChannelStates.waiting_for_code)
 async def process_post_code(message: Message, state: FSMContext) -> None:
     if not message.text or not message.text.isdigit():
-        await message.answer("❌ Iltimos, raqamli anime kodini kiriting!")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Iltimos, raqamli anime kodini kiriting!",
+            parse_mode="HTML"
+        )
         return
 
     code = int(message.text.strip())
@@ -985,7 +1032,10 @@ async def process_post_code(message: Message, state: FSMContext) -> None:
 async def show_post_preview(message: Message, code: int) -> None:
     anime = await db.get_anime_by_code(code)
     if not anime:
-        await message.answer(f"❌ #{code} kodli anime topilmadi!")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} #{code} kodli anime topilmadi!",
+            parse_mode="HTML"
+        )
         return
 
     post_text, channel_kb = format_channel_post(anime)
@@ -1077,10 +1127,17 @@ async def process_broadcast(message: Message, state: FSMContext) -> None:
     total_users = len(user_ids)
 
     if total_users == 0:
-        await message.answer("Bazada hech qanday foydalanuvchi yo'q.", reply_markup=get_admin_menu())
+        await message.answer(
+            f"{get_custom_emoji('info', 'ℹ️')} Bazada hech qanday foydalanuvchi yo'q.",
+            reply_markup=get_admin_menu(),
+            parse_mode="HTML"
+        )
         return
 
-    status_msg = await message.answer(f"⏳ Xabar tarqatilmoqda... (0/{total_users})")
+    status_msg = await message.answer(
+        f"{get_custom_emoji('kutish', '⏳')} Xabar tarqatilmoqda... (0/{total_users})",
+        parse_mode="HTML"
+    )
 
     sent = 0
     blocked = 0
@@ -1096,16 +1153,19 @@ async def process_broadcast(message: Message, state: FSMContext) -> None:
         # Har 20 ta xabarda statusni yangilash va flood limitdan saqlanish
         if i % 20 == 0:
             try:
-                await status_msg.edit_text(f"⏳ Xabar tarqatilmoqda... ({i}/{total_users})")
+                await status_msg.edit_text(
+                    f"{get_custom_emoji('kutish', '⏳')} Xabar tarqatilmoqda... ({i}/{total_users})",
+                    parse_mode="HTML"
+                )
             except Exception:
                 pass
             await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
-        f"✅ <b>Xabar tarqatish yakunlandi!</b>\n\n"
+        f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>Xabar tarqatish yakunlandi!</b>\n\n"
         f"📬 Yuborildi: <b>{sent} ta</b>\n"
         f"🚫 Yetib bormadi (bloklagan): <b>{blocked} ta</b>\n"
-        f"👥 Jami: <b>{total_users} ta</b>",
+        f"{get_custom_emoji('qahramon', '👥')} Jami: <b>{total_users} ta</b>",
         parse_mode="HTML"
     )
 
@@ -1118,7 +1178,7 @@ async def start_delete_anime(message: Message, state: FSMContext) -> None:
 
     await state.set_state(DeleteAnimeStates.waiting_for_code)
     await message.answer(
-        "🗑 O'chirmoqchi bo'lgan animengiz kodini kiriting:\n"
+        f"{get_custom_emoji('xato', '🗑')} O'chirmoqchi bo'lgan animengiz kodini kiriting:\n"
         "<i>(Barcha qismlari ham bazadan o'chib ketadi)</i>",
         reply_markup=get_cancel_reply(),
         parse_mode="HTML"
@@ -1128,7 +1188,10 @@ async def start_delete_anime(message: Message, state: FSMContext) -> None:
 @admin_router.message(DeleteAnimeStates.waiting_for_code)
 async def process_delete_anime(message: Message, state: FSMContext) -> None:
     if not message.text or not message.text.isdigit():
-        await message.answer("❌ Iltimos, raqamli kod kiriting!")
+        await message.answer(
+            f"{get_custom_emoji('xato', '❌')} Iltimos, raqamli kod kiriting!",
+            parse_mode="HTML"
+        )
         return
 
     code = int(message.text.strip())
@@ -1136,9 +1199,9 @@ async def process_delete_anime(message: Message, state: FSMContext) -> None:
 
     deleted = await db.delete_anime(code)
     if deleted:
-        await message.answer(f"✅ <b>#{code}</b> kodli anime va uning barcha qismlari o'chirildi.", reply_markup=get_admin_menu(), parse_mode="HTML")
+        await message.answer(f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>#{code}</b> kodli anime va uning barcha qismlari o'chirildi.", reply_markup=get_admin_menu(), parse_mode="HTML")
     else:
-        await message.answer(f"❌ <b>#{code}</b> kodli anime topilmadi.", reply_markup=get_admin_menu(), parse_mode="HTML")
+        await message.answer(f"{get_custom_emoji('xato', '❌')} <b>#{code}</b> kodli anime topilmadi.", reply_markup=get_admin_menu(), parse_mode="HTML")
 
 
 # ------------------ 6. KANAL UCHUN KATALOG (NAVIGATSIYA) POSTI ------------------
@@ -1150,10 +1213,14 @@ async def handle_channel_catalog_post(message: Message) -> None:
     success = await sync_channel_catalog(message.bot)
     if success:
         await message.answer(
-            f"✅ <b>Kanal Mundarijasi (Katalog)</b> muvaffaqiyatli yangilandi va {config.CHANNEL_USERNAME} kanalida yangi/qadalgan holatda sinxronlandi!\n\n"
-            f"ℹ️ Obunachilarni bezovta qilmaslik uchun anime yoki qism yuklanganda kanalga avtomatik post yuborilmaydi. Katalog postini yangilash kerak bo'lganda aynan shu tugmadan foydalanasiz.",
+            f"{get_custom_emoji('muvaffaqiyat', '✅')} <b>Kanal Mundarijasi (Katalog)</b> muvaffaqiyatli yangilandi va {config.CHANNEL_USERNAME} kanalida yangi/qadalgan holatda sinxronlandi!\n\n"
+            f"{get_custom_emoji('info', 'ℹ️')} Obunachilarni bezovta qilmaslik uchun anime yoki qism yuklanganda kanalga avtomatik post yuborilmaydi. Katalog postini yangilash kerak bo'lganda aynan shu tugmadan foydalanasiz.",
             reply_markup=get_admin_menu(),
             parse_mode="HTML"
         )
     else:
-        await message.answer("⚠️ Hozircha bazada birorta ham anime yo'q yoki kanalga post chiqarishda xatolik bo'ldi.", reply_markup=get_admin_menu())
+        await message.answer(
+            f"{get_custom_emoji('ogohlantirish', '⚠️')} Hozircha bazada birorta ham anime yo'q yoki kanalga post chiqarishda xatolik bo'ldi.",
+            reply_markup=get_admin_menu(),
+            parse_mode="HTML"
+        )
