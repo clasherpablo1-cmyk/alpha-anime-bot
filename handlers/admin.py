@@ -617,8 +617,6 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
     # 1. Yangi anime haqida kanalga avtomatik chiroyli e'lon posti chiqarish
     try:
         asyncio.create_task(post_anime_to_channel(message.bot, anime))
-        # 2. Kanal qadalgan mundarija (katalog) postini ham jimgina yangilash
-        asyncio.create_task(sync_channel_catalog(message.bot))
     except Exception as post_err:
         logger.warning(f"Kanalga avtomatik e'lon yuborishda ogohlantirish: {post_err}")
 

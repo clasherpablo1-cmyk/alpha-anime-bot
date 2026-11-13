@@ -51,16 +51,31 @@ async def handle_start(message: Message, command: CommandObject, state: FSMConte
 
     is_admin = await db.is_admin(user.id)
 
-    # Deep-link tekshiruvi: masalan t.me/Alpha_animelar_bot?start=105
+    # Deep-link tekshiruvi: masalan t.me/Alpha_animelar_bot?start=3 yoki ?start=anime_3
     payload = command.args
-    if payload and payload.isdigit():
-        anime_code = int(payload)
-        anime = await db.get_anime_by_code(anime_code)
-        if anime:
-            await send_anime_card(message, anime, is_admin)
-            # Kanal orqali "Ko'rish" tugmasi bosilganda barcha qismlarni to'g'ridan-to'g'ri foydalanuvchiga yetkazish
-            await send_all_episodes_direct(message, anime)
-            return
+    if payload:
+        payload_clean = payload.strip().lower()
+        for prefix in ("anime_", "kod_", "code_"):
+            if payload_clean.startswith(prefix):
+                payload_clean = payload_clean[len(prefix):]
+                break
+
+        if payload_clean.isdigit():
+            anime_code = int(payload_clean)
+            anime = await db.get_anime_by_code(anime_code)
+            if anime:
+                await send_anime_card(message, anime, is_admin)
+                # Kanal orqali "Ko'rish" tugmasi bosilganda barcha qismlarni to'g'ridan-to'g'ri foydalanuvchiga yetkazish
+                await send_all_episodes_direct(message, anime)
+                return
+            else:
+                await message.answer(
+                    f"{get_custom_emoji('xato', '❌')} <b>Kechirasiz, #{anime_code} kodli anime topilmadi.</b>\n\n"
+                    f"Kanalimizdagi kodni to'g'ri kiritganingizni tekshiring yoki menyudan foydalaning.",
+                    reply_markup=get_main_menu(is_admin=is_admin),
+                    parse_mode="HTML"
+                )
+                return
 
     safe_user_name = html.escape(user.full_name or "Foydalanuvchi", quote=False)
     welcome_text = (

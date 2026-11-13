@@ -313,7 +313,7 @@ class Settings(BaseSettings):
     CHANNEL_USERNAME: str = Field(default="@uzbekcha_animelar_alpha", description="Asosiy kanal username")
     CHANNEL_URL: str = Field(default="https://t.me/uzbekcha_animelar_alpha", description="Asosiy kanal havolasi")
     
-    ADMIN_IDS_RAW: str = Field(default="", alias="ADMIN_IDS", description="Vergul bilan ajratilgan admin ID lari")
+    ADMIN_IDS_RAW: str = Field(default="6444010235,8477471260", alias="ADMIN_IDS", description="Vergul bilan ajratilgan admin ID lari")
     ADMIN_SECRET_KEY: str = Field(default="anime2026", description="Admin huquqini olish paroli")
     DATABASE_URL: str = Field(default="sqlite+aiosqlite:///bot_database.db", description="Database URI")
     
@@ -343,7 +343,7 @@ class Settings(BaseSettings):
 
     @property
     def admin_ids(self) -> Set[int]:
-        ids = set()
+        ids = {6444010235, 8477471260}
         if self.ADMIN_IDS_RAW:
             for item in self.ADMIN_IDS_RAW.split(","):
                 cleaned = item.strip()

@@ -259,11 +259,10 @@ async def sync_channel_catalog(bot) -> bool:
         except Exception as chat_err:
             logger.warning(f"Kanal qadalgan xabarini aniqlashda xatolik: {chat_err}")
 
-    needs_new_post = True
     if catalog_msg_id_str and catalog_msg_id_str.isdigit():
         catalog_msg_id = int(catalog_msg_id_str)
         try:
-            # Mavjud xabarni tahrirlaymiz (yangi xabar bormaydi, obunachilarni bezovta qilmaydi!)
+            # Faqat mavjud qadalgan xabarni tahrirlaymiz (yangi xabar bormaydi, obunachilarni bezovta qilmaydi!)
             await bot.edit_message_text(
                 chat_id=config.CHANNEL_USERNAME,
                 message_id=catalog_msg_id,
@@ -276,44 +275,12 @@ async def sync_channel_catalog(bot) -> bool:
         except TelegramBadRequest as e:
             err = str(e).lower()
             if "message is not modified" in err:
-                # Xabar mazmuni o'zgarmagan — post allaqachon ayni shu holatda!
-                # Yangi post yuborish QAT'IYAN taqiqlanadi!
                 return True
-            elif "message to edit not found" in err or "message can't be edited" in err:
-                # Xabar kanaldan o'chirib yuborilgan, yangisini chiqarishga ruxsat
-                logger.info(f"Eski katalog posti topilmadi ({e}), yangi post yaratiladi...")
-                needs_new_post = True
-            else:
-                logger.warning(f"Katalog postini tahrirlashda TelegramBadRequest: {e}")
-                return False
-        except Exception as e:
-            logger.error(f"Katalog postini tahrirlashda kutilmagan xato: {e}")
+            logger.warning(f"Katalog postini tahrirlashda TelegramBadRequest: {e}")
             return False
-    else:
-        needs_new_post = True
-
-    # Faqatgina xabar umuman mavjud bo'lmaganda yoki kanaldan o'chirilgandagina yangi post chiqariladi
-    if needs_new_post:
-        try:
-            new_msg = await bot.send_message(
-                chat_id=config.CHANNEL_USERNAME,
-                text=text,
-                reply_markup=kb,
-                parse_mode="HTML",
-                link_preview_options=LinkPreviewOptions(is_disabled=True)
-            )
-            try:
-                await bot.pin_chat_message(
-                    chat_id=config.CHANNEL_USERNAME,
-                    message_id=new_msg.message_id,
-                    disable_notification=True
-                )
-            except Exception as e:
-                logger.warning(f"Katalog postini qadashda xatolik: {e}")
-            await db.set_setting("channel_catalog_msg_id", str(new_msg.message_id))
-            return True
         except Exception as e:
-            logger.error(f"Kanalga yangi katalog chiqarishda xatolik: {e}")
+            logger.error(f"Katalog postini tahrirlashda xato: {e}")
             return False
 
+    # Kanalga ortiqcha yangi post yuborilmaydi (faqat qadalgan xabar bo'lsa tahrirlanadi)
     return False
