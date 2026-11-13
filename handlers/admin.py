@@ -565,10 +565,9 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
     confirm_text = (
         f"🎉 <b>Anime muvaffaqiyatli saqlandi!</b>\n\n"
         f"🎬 <b>Nomi:</b> {safe_title_uz}\n"
-        f"🔑 <b>Kodi:</b> <code>{anime.code}</code>\n"
+        f"🔑 <b>Kodi:</b> <code>#{anime.code}</code>\n"
         f"📅 <b>Yili:</b> {anime.year}\n"
         f"🎭 <b>Janr:</b> {safe_genres}\n\n"
-        f"📌 <i>Kanal katalogi avtomatik jimgina yangilandi!</i>\n"
         f"Endi darhol qismlarni yuklash uchun quyidagi tugmani bosing:"
     )
 
@@ -694,15 +693,27 @@ async def enter_batch_upload_mode(message: Message, anime: Anime, state: FSMCont
     )
 
 
-@admin_router.message(BatchUploadStates.uploading_batch_episodes, F.video)
+@admin_router.message(BatchUploadStates.uploading_batch_episodes, F.video | F.document)
 async def process_batch_video(message: Message, state: FSMContext) -> None:
-    if not message.video:
+    is_video = bool(message.video)
+    is_doc_video = bool(
+        message.document and (
+            (message.document.mime_type and message.document.mime_type.startswith("video/")) or
+            (message.document.file_name and message.document.file_name.lower().endswith(
+                (".mp4", ".mkv", ".avi", ".mov", ".webm", ".ts", ".m4v", ".3gp")
+            ))
+        )
+    )
+    if not (is_video or is_doc_video):
+        await message.reply("⚠️ Iltimos, faqat video fayl yuboring (mp4, mkv va h.k.) yoki «🏁 Ommaviy yuklashni tugatish» tugmasini bosing!")
         return
+
     data = await state.get_data()
     anime_id = data["anime_id"]
     anime_title = data["anime_title"]
 
-    filename = message.video.file_name or ""
+    file_id = message.video.file_id if message.video else message.document.file_id
+    filename = (message.video.file_name if message.video else message.document.file_name) or ""
     caption = message.caption or ""
 
     anime = await db.get_anime_by_id(anime_id)
@@ -716,7 +727,6 @@ async def process_batch_video(message: Message, state: FSMContext) -> None:
     elif "480" in f"{filename} {caption}":
         quality = "480p"
 
-    file_id = message.video.file_id
     await db.add_or_update_episode(
         anime_id=anime_id,
         episode_number=ep_number,
@@ -731,6 +741,16 @@ async def process_batch_video(message: Message, state: FSMContext) -> None:
     await message.reply(
         f"⚡️ <b>{ep_number}-qism</b> saqlandi! ({quality})\n"
         f"<i>Ushbu seansda yuklandi: {uploaded_so_far} ta</i>",
+        parse_mode="HTML"
+    )
+
+
+@admin_router.message(BatchUploadStates.uploading_batch_episodes)
+async def process_batch_other_message(message: Message) -> None:
+    await message.answer(
+        "⚠️ Hozir ommaviy yuklash rejimi faol.\n"
+        "Iltimos, video fayllarni yuboring yoki tugatish uchun pastdagi <b>«🏁 Ommaviy yuklashni tugatish»</b> tugmasini bosing.",
+        reply_markup=get_batch_upload_menu(),
         parse_mode="HTML"
     )
 
@@ -862,15 +882,28 @@ async def process_ep_number(message: Message, state: FSMContext) -> None:
     )
 
 
-@admin_router.message(AddEpisodeStates.waiting_for_video, F.video)
+@admin_router.message(AddEpisodeStates.waiting_for_video, F.video | F.document)
 async def process_ep_video(message: Message, state: FSMContext) -> None:
-    if not message.video:
+    is_video = bool(message.video)
+    is_doc_video = bool(
+        message.document and (
+            (message.document.mime_type and message.document.mime_type.startswith("video/")) or
+            (message.document.file_name and message.document.file_name.lower().endswith(
+                (".mp4", ".mkv", ".avi", ".mov", ".webm", ".ts", ".m4v", ".3gp")
+            ))
+        )
+    )
+    if not (is_video or is_doc_video):
+        await message.answer(
+            "⚠️ Iltimos, video faylni yuboring (mp4, mkv va h.k.) yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing.",
+            reply_markup=get_cancel_reply()
+        )
         return
 
     data = await state.get_data()
     await state.clear()
 
-    file_id = message.video.file_id
+    file_id = message.video.file_id if message.video else message.document.file_id
     anime_id = data["anime_id"]
     ep_num = data["episode_number"]
 
@@ -895,6 +928,14 @@ async def process_ep_video(message: Message, state: FSMContext) -> None:
         f"Foydalanuvchilar endi ushbu qismni bot orqali ko'ra olishadi.",
         reply_markup=get_admin_menu(),
         parse_mode="HTML"
+    )
+
+
+@admin_router.message(AddEpisodeStates.waiting_for_video)
+async def process_ep_video_fallback(message: Message) -> None:
+    await message.answer(
+        "⚠️ Iltimos, video faylni yuboring (mp4, mkv va h.k.) yoki bekor qilish uchun «❌ Bekor qilish» tugmasini bosing.",
+        reply_markup=get_cancel_reply()
     )
 
 
