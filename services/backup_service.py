@@ -184,6 +184,16 @@ class BackupService:
                     parse_mode="HTML"
                 )
 
+                # 2.1. Zaxira xabarini kanalga jimgina qadab qo'yamiz (har qanday yangi konteyner tezda topishi uchun)
+                try:
+                    await bot.pin_chat_message(
+                        chat_id=self.channel_id,
+                        message_id=sent_msg.message_id,
+                        disable_notification=True
+                    )
+                except Exception as pin_err:
+                    logger.debug(f"Zaxira xabarini qadashda ogohlantirish: {pin_err}")
+
                 # 3. Save new message ID and file ID in system settings
                 if sent_msg.document:
                     await db.set_setting("last_backup_file_id", sent_msg.document.file_id)
@@ -268,6 +278,16 @@ class BackupService:
 
         try:
             last_file_id = await db.get_setting("last_backup_file_id")
+            if not last_file_id:
+                # Agar settings jadvalida bo'lmasa, zaxira kanalining qadalgan xabaridan avtomatik olamiz
+                try:
+                    chat = await bot.get_chat(self.channel_id)
+                    if chat.pinned_message and chat.pinned_message.document:
+                        last_file_id = chat.pinned_message.document.file_id
+                        logger.info(f"Zaxira kanali qadalgan xabaridan file_id topildi: {last_file_id}")
+                except Exception as chat_err:
+                    logger.debug(f"Zaxira kanalidan qadalgan xabarni olishda xatolik: {chat_err}")
+
             if last_file_id:
                 logger.info(f"Oxirgi zaxira fayli yuklab olinmoqda (File ID: {last_file_id})...")
                 file_io = io.BytesIO()
