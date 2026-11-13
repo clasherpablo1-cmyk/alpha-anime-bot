@@ -58,6 +58,8 @@ async def handle_start(message: Message, command: CommandObject, state: FSMConte
         anime = await db.get_anime_by_code(anime_code)
         if anime:
             await send_anime_card(message, anime, is_admin)
+            # Kanal orqali "Ko'rish" tugmasi bosilganda barcha qismlarni to'g'ridan-to'g'ri foydalanuvchiga yetkazish
+            await send_all_episodes_direct(message, anime)
             return
 
     safe_user_name = html.escape(user.full_name or "Foydalanuvchi", quote=False)
@@ -202,6 +204,21 @@ async def handle_random_anime(message: Message) -> None:
         return
     is_admin = await db.is_admin(message.from_user.id) if message.from_user else False
     await send_anime_card(message, anime, is_admin)
+
+
+@user_router.message(F.text.in_({"🗂 Barcha animelar", "🗂 Katalog", "Katalog"}))
+async def handle_all_animes(message: Message) -> None:
+    animes = await db.get_recent_animes(limit=50)
+    if not animes:
+        await message.answer("😔 Hozircha bazada animelar mavjud emas.")
+        return
+    kb = get_anime_search_keyboard(animes)
+    await message.answer(
+        f"🗂 <b>Barcha sara animelar ro'yxati (Jami {len(animes)} ta):</b>\n\n"
+        f"<i>Tomosha qilish uchun quyidagi tugmalardan birini bosing:</i>",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
 
 
 @user_router.message(F.text == "🆕 Yangi animelar")
@@ -648,20 +665,78 @@ async def handle_download_all_episodes(callback: CallbackQuery) -> None:
     for ep in episodes:
         caption = format_episode_caption(anime.title_uz, ep.episode_number, ep.quality)
         try:
-            await callback.message.answer_video(
-                video=ep.video_file_id,
-                caption=caption,
-                parse_mode="HTML"
-            )
+            try:
+                await callback.message.answer_video(
+                    video=ep.video_file_id,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                await callback.message.answer_document(
+                    document=ep.video_file_id,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
             await db.increment_episode_downloads(ep.id)
             sent_count += 1
             await asyncio.sleep(0.4)  # Telegram flood limitdan saqlanish
-        except Exception:
-            pass
+        except Exception as ep_err:
+            logger.warning(f"Qism #{ep.episode_number} yuborishda xato: {ep_err}")
 
     try:
         await status_msg.edit_text(
             f"✅ <b>{anime.title_uz}</b> animening barcha ({sent_count}/{total_eps}) qismlari yuborildi!\n\n"
+            f"📢 Kanalimiz: {config.CHANNEL_USERNAME}\n"
+            f"<i>Maroqli tomosha tilaymiz!</i> 🍿",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+
+async def send_all_episodes_direct(message: Message, anime: Anime) -> None:
+    """Kanal orqali 'Ko'rish' tugmasi bosilganda barcha qismlarni to'g'ridan-to'g'ri foydalanuvchiga yuborish"""
+    episodes = sorted(anime.episodes, key=lambda e: e.episode_number) if anime.episodes else []
+    total_eps = len(episodes)
+    if total_eps == 0:
+        await message.answer(
+            f"⏳ <b>{html.escape(anime.title_uz, quote=False)}</b> animening qismlari tez orada botga yuklanadi!\n"
+            f"Kanalimizni kuzatib boring: {config.CHANNEL_USERNAME}",
+            parse_mode="HTML"
+        )
+        return
+
+    status_msg = await message.answer(
+        f"📥 <b>{html.escape(anime.title_uz, quote=False)}</b> — Barcha ({total_eps} ta) qismlar yuborilmoqda...\n"
+        f"<i>Iltimos, ozroq kuting...</i> 🍿",
+        parse_mode="HTML"
+    )
+
+    sent_count = 0
+    for ep in episodes:
+        caption = format_episode_caption(anime.title_uz, ep.episode_number, ep.quality)
+        try:
+            try:
+                await message.answer_video(
+                    video=ep.video_file_id,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                await message.answer_document(
+                    document=ep.video_file_id,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+            await db.increment_episode_downloads(ep.id)
+            sent_count += 1
+            await asyncio.sleep(0.4)
+        except Exception as ep_err:
+            logger.warning(f"Qism #{ep.episode_number} to'g'ridan-to'g'ri yuborishda xato: {ep_err}")
+
+    try:
+        await status_msg.edit_text(
+            f"✅ <b>{html.escape(anime.title_uz, quote=False)}</b> animening barcha ({sent_count}/{total_eps}) qismlari yetkazildi!\n\n"
             f"📢 Kanalimiz: {config.CHANNEL_USERNAME}\n"
             f"<i>Maroqli tomosha tilaymiz!</i> 🍿",
             parse_mode="HTML"

@@ -15,7 +15,7 @@ from database.db import db
 from database.models import Anime
 from services.anilist import anilist_service
 from services.backup_service import backup_service
-from services.post_generator import format_channel_post, format_channel_catalog, sync_channel_catalog
+from services.post_generator import format_channel_post, format_channel_catalog, sync_channel_catalog, post_anime_to_channel
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_reply, get_batch_upload_menu
 from keyboards.inline import (
     get_admin_post_confirm_keyboard,
@@ -588,6 +588,14 @@ async def finalize_add_anime(message: Message, state: FSMContext) -> None:
         ]
     )
 
+    # 1. Yangi anime haqida kanalga avtomatik chiroyli e'lon posti chiqarish
+    try:
+        asyncio.create_task(post_anime_to_channel(message.bot, anime))
+        # 2. Kanal qadalgan mundarija (katalog) postini ham jimgina yangilash
+        asyncio.create_task(sync_channel_catalog(message.bot))
+    except Exception as post_err:
+        logger.warning(f"Kanalga avtomatik e'lon yuborishda ogohlantirish: {post_err}")
+
     # Telegram Cloud zaxiralash (@acacafagag)
     try:
         from services.backup_service import backup_service
@@ -1025,46 +1033,18 @@ async def handle_confirm_post(callback: CallbackQuery) -> None:
         await callback.answer("Anime topilmadi!", show_alert=True)
         return
 
-    post_text, channel_kb = format_channel_post(anime)
-    bot = callback.bot
-
-    try:
-        poster = anime.poster_file_id
-        if poster:
-            if poster.startswith("http://") or poster.startswith("https://"):
-                await bot.send_photo(
-                    chat_id=config.CHANNEL_USERNAME,
-                    photo=URLInputFile(poster),
-                    caption=post_text,
-                    reply_markup=channel_kb,
-                    parse_mode="HTML"
-                )
-            else:
-                await bot.send_photo(
-                    chat_id=config.CHANNEL_USERNAME,
-                    photo=poster,
-                    caption=post_text,
-                    reply_markup=channel_kb,
-                    parse_mode="HTML"
-                )
-        else:
-            await bot.send_message(
-                chat_id=config.CHANNEL_USERNAME,
-                text=post_text,
-                reply_markup=channel_kb,
-                parse_mode="HTML"
-            )
-
+    ok = await post_anime_to_channel(callback.bot, anime)
+    if ok:
         await callback.answer("✅ Post muvaffaqiyatli kanalga chiqarildi!", show_alert=True)
         if callback.message:
             safe_post_title = html.escape(anime.title_uz, quote=False)
             await callback.message.edit_text(
-                f"✅ <b>#{anime.code} — {safe_post_title}</b> posti {config.CHANNEL_USERNAME} kanaliga chiqarildi!",
+                f"✅ <b>#{anime.code} — {safe_post_title}</b> posti {config.CHANNEL_USERNAME} kanaliga chiqarildi!\n\n"
+                f"Obunachilar «Ko'rish» tugmasi orqali to'g'ridan-to'g'ri botda barcha qismlarni tomosha qilishlari mumkin.",
                 parse_mode="HTML"
             )
-    except Exception as e:
-        logger.error(f"Kanalga post chiqarishda xatolik: {e}")
-        await callback.answer(f"❌ Xatolik: {e}", show_alert=True)
+    else:
+        await callback.answer("❌ Kanalga post chiqarishda xatolik yuz berdi.", show_alert=True)
 
 
 @admin_router.callback_query(F.data.in_(["cancel_admin_action", "cancel_action"]))

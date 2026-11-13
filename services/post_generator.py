@@ -1,7 +1,7 @@
 import html
 import logging
 from typing import Optional, Tuple
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions, URLInputFile
 from aiogram.exceptions import TelegramBadRequest
 from database.models import Anime
 from config import config
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
-    """Kanalga chiqarish uchun chiroyli bezatilgan post matni va inline tugmalar"""
+    """Kanalga yangi anime joylanganda e'lon qilish uchun chiroyli bezatilgan post matni va inline tugmalar"""
     title_raw = anime.title_uz
     if anime.title_romaji and anime.title_romaji.lower() != anime.title_uz.lower():
         title_raw += f" / {anime.title_romaji}"
@@ -28,32 +28,37 @@ def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
 
     bot_url = f"https://t.me/{config.BOT_USERNAME}?start={anime.code}"
 
+    clean_tag = "".join(c for c in anime.title_uz.lower() if c.isalnum())
+    tag = f"#{clean_tag}" if clean_tag else "#anime"
+
     text = (
+        f"✨ <b>YANGI ANIME BOTGA JOYLANDI!</b> 🎬\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
         f"🎬 <b>{title_display}</b>\n\n"
         f"▫️ <b>Qismlar:</b> {total_episodes_str}\n"
         f"▫️ <b>Holati:</b> {status_str}\n"
         f"▫️ <b>Chiqarilgan yili:</b> {year_str}\n"
         f"▫️ <b>Janr:</b> {genres_str}\n"
-        f"▫️ <b>Ovoz:</b> O'zbekcha tarjima (Professional)\n"
-        f"▫️ <b>Sifat:</b> 720p HD\n\n"
+        f"▫️ <b>Ovoz:</b> O'zbekcha tarjima (HD)\n\n"
         f"📖 <b>Qisqacha mazmuni:</b>\n<i>{desc_str}</i>\n\n"
         f"🔑 <b>Anime kodi:</b> <code>{anime.code}</code>\n"
-        f"👉 <b>Ko'rish uchun bot:</b> @{config.BOT_USERNAME}\n\n"
-        f"📢 Bizning kanal: {config.CHANNEL_USERNAME}\n"
-        f"#kod_{anime.code} #anime"
+        f"👉 <b>Botimiz orqali tomosha qiling:</b> @{config.BOT_USERNAME}\n"
+        f"📢 <b>Kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"#kod_{anime.code} #anime {tag}"
     )
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="▶️ Qismlarni botda ko'rish",
+                    text="👁 Ko'rish (Barcha qismlar)",
                     url=bot_url
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="📢 Kanalga a'zo bo'lish",
+                    text="📢 Kanalimiz",
                     url=config.CHANNEL_URL
                 )
             ]
@@ -61,6 +66,48 @@ def format_channel_post(anime: Anime) -> Tuple[str, InlineKeyboardMarkup]:
     )
 
     return text, keyboard
+
+
+async def post_anime_to_channel(bot, anime: Anime) -> bool:
+    """Yangi anime qo'shilganda kanalga rasmli va 'Ko'rish' tugmali chiroyli post chiqarish"""
+    try:
+        text, kb = format_channel_post(anime)
+        poster = anime.poster_file_id
+        if poster:
+            try:
+                if poster.startswith("http://") or poster.startswith("https://"):
+                    await bot.send_photo(
+                        chat_id=config.CHANNEL_USERNAME,
+                        photo=URLInputFile(poster),
+                        caption=text,
+                        reply_markup=kb,
+                        parse_mode="HTML"
+                    )
+                else:
+                    await bot.send_photo(
+                        chat_id=config.CHANNEL_USERNAME,
+                        photo=poster,
+                        caption=text,
+                        reply_markup=kb,
+                        parse_mode="HTML"
+                    )
+                logger.info(f"Yangi anime #{anime.code} kanalga rasmi bilan muvaffaqiyatli post qilindi.")
+                return True
+            except Exception as photo_err:
+                logger.warning(f"Kanalga rasm bilan post chiqarishda xato ({photo_err}), matnli yuborilmoqda...")
+
+        await bot.send_message(
+            chat_id=config.CHANNEL_USERNAME,
+            text=text,
+            reply_markup=kb,
+            parse_mode="HTML",
+            link_preview_options=LinkPreviewOptions(is_disabled=True)
+        )
+        logger.info(f"Yangi anime #{anime.code} kanalga matnli post qilindi.")
+        return True
+    except Exception as e:
+        logger.error(f"Kanalga yangi anime postini chiqarishda xatolik: {e}")
+        return False
 
 
 def format_episode_caption(anime_title: str, ep_number: int, quality: str = "720p") -> str:

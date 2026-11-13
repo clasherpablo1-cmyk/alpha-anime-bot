@@ -13,10 +13,11 @@ def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
             KeyboardButton(text="🎲 Tasodifiy anime"),
         ],
         [
+            KeyboardButton(text="🗂 Barcha animelar"),
             KeyboardButton(text="🆕 Yangi animelar"),
-            KeyboardButton(text="📢 Bizning kanal"),
         ],
         [
+            KeyboardButton(text="📢 Bizning kanal"),
             KeyboardButton(text="ℹ️ Bot haqida"),
         ]
     ]
